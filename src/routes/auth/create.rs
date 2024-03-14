@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 
-use super::structs::{Account};
+use super::structs::Account;
 
 /// Creates a user entry in the database. If it was successful, returns 200 OK. If not, returns 400 Bad Request.
 pub async fn create_user(payload: String) -> StatusCode {
@@ -8,7 +8,6 @@ pub async fn create_user(payload: String) -> StatusCode {
     let account: Account = serde_json::from_str(&payload).unwrap();
     println!("Parsed!");
     // check for username uniquity
-    let user = Account::get_account(&account.username).await;
     println!("Queried Database!");
     if Account::get_account(&account.username).await.is_some() {
         // return an error
