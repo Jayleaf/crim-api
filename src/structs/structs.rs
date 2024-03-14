@@ -23,7 +23,8 @@ pub struct Account
     pub salt: Vec<u8>,
     pub public_key: Vec<u8>,
     pub priv_key_enc: Vec<u8>,
-    pub friends: Vec<String>
+    pub friends: Vec<String>,
+    pub session_id: String
 }
 
 impl Account
@@ -57,7 +58,10 @@ impl Account
                 .unwrap()
                 .iter()
                 .map(|x| x.as_str().unwrap().to_string())
-                .collect()
+                .collect(),
+            session_id: doc.get_str("session_id")
+                .unwrap()
+                .to_string()
         }
     }
 
@@ -144,3 +148,11 @@ impl Account
         }
     }
 }  
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct ClientAccount
+{
+    pub username: String,
+    pub password: String,
+    pub session_id: String,
+}

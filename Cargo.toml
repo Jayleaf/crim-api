@@ -6,10 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+argon2 = "0.5.3"
 axum = "0.7.4"
+base64 = "0.22.0"
 cargo-watch = "8.5.2"
 dotenv = "0.15.0"
 full = "0.1.0"
+getrandom = "0.2.12"
 serde = "1.0.197"
 serde_json = "1.0.114"
 tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread", "full"] }
