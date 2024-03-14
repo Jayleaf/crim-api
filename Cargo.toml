@@ -1,0 +1,18 @@
+[package]
+name = "crim-api"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+axum = "0.7.4"
+cargo-watch = "8.5.2"
+dotenv = "0.15.0"
+full = "0.1.0"
+serde = "1.0.197"
+serde_json = "1.0.114"
+tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread", "full"] }
+
+[dependencies.mongodb]
+version = "2.8.1"
