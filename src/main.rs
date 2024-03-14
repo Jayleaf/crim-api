@@ -13,7 +13,7 @@ use tokio;
 
 #[tokio::main]
 async fn main() {
-    // build our application with a single route
+    // build routes
     let app = Router::new()
         .route("/api", get(|| async { "Hello, World!" }))
         .route("/api/auth/create", post(routes::auth::create::create_user))
