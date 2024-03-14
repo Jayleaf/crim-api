@@ -5,6 +5,7 @@
 //----------------------------------------------//
 
 use mongodb::{bson::{self, Document,}};
+use openssl::{pkey::{Private, Public}, rsa::{Padding, Rsa}};
 use serde::{Deserialize, Serialize};
 use super::mongo;
 
@@ -155,4 +156,42 @@ pub struct ClientAccount
     pub username: String,
     pub password: String,
     pub session_id: String,
+}
+
+//----------------------------------------------//
+//                                              //
+//                   Messages                   //
+//                                              //
+//----------------------------------------------//
+
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
+pub struct UserKey
+{
+    owner: String,
+    key: Vec<u8>
+}
+
+impl UserKey
+{
+    pub fn from_document(doc: &Document) -> UserKey
+    {
+        let owner: String = doc.get_str("owner").unwrap().to_string();
+        let key: Vec<u8> = doc
+            .get_array("key")
+            .unwrap()
+            .iter()
+            .map(|x| x.as_i64().unwrap() as u8)
+            .collect();
+        UserKey { owner, key }
+    }
+    pub async fn encrypt(key: &[u8], user: &String) -> UserKey
+    {
+        let pub_key: Vec<u8> = Account::get_account(user).await.unwrap().public_key;
+        let pub_key: Rsa<Public> = Rsa::public_key_from_pem(pub_key.as_slice()).expect("Failed to retrieve a public key from database.");
+        let mut encrypted_key: Vec<u8> = vec![0; pub_key.size() as usize];
+        pub_key
+            .public_encrypt(key, &mut encrypted_key, Padding::PKCS1)
+            .expect("failed to encrypt key");
+        UserKey { owner: user.clone(), key: encrypted_key }
+    }
 }
