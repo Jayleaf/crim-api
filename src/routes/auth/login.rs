@@ -4,13 +4,13 @@ use super::structs::{Account, ClientAccount};
 use argon2::Argon2;
 use base64::{engine::general_purpose, Engine as _};
 use getrandom::getrandom;
+use super::mongo;
 
 /// "Logs" a user in. Generates a session ID and spits it back if the login was successful.
 pub async fn login_user(payload: String) -> impl IntoResponse {
     // the payload is going to be a clientaccount, containing plaintext username, password, and SID. SID doesn't matter because it's gonna get regenerated anyway.
     let account: ClientAccount = serde_json::from_str(&payload).unwrap();
-    println!("Parsed!");
-    // check if the account exists;
+    mongo::ping().await;
     if let Some(server_account) = Account::get_account(&account.username).await
     {
         // check if the provided password is valid by hashing the plaintext password and comparing it to the db entry

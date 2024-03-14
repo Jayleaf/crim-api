@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate took_macro;
+
 mod routes;
 mod structs;
 mod db;

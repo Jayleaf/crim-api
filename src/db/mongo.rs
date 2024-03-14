@@ -1,7 +1,10 @@
+
+
 use mongodb::{Client, options::ClientOptions};
 use mongodb::{
     bson::doc, bson::Document, options::{ServerApi, ServerApiVersion}, Collection, Database
 };
+use took::{took, Took};
 
 async fn init_mongo() -> mongodb::error::Result<Client> {
     let mut client_options =
@@ -16,9 +19,10 @@ async fn init_mongo() -> mongodb::error::Result<Client> {
       .database("admin")
       .run_command(doc! {"ping": 1}, None)
       .await?;
-    println!("Pinged your deployment. You successfully connected to MongoDB!");
     Ok(client)
   }
 
+#[took(description = "Pinged database: ")]
+pub async fn ping() { init_mongo().await.unwrap();}
 pub async fn get_database(name: &str) -> Database { init_mongo().await.unwrap().database(name) }
 pub async fn get_collection(name: &str) -> Collection<Document> { get_database(dotenv::var("DB_NAME").unwrap().as_str()).await.collection::<Document>(name) }
