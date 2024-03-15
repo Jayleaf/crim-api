@@ -1,10 +1,11 @@
 use axum::http::StatusCode;
 use super::mongo;
-use super::structs::{ClientAccount, Account};
+use super::generics::structs::{ClientAccount, Account};
 
 /// Deletes entry in the database. If it was successful, returns 200 OK. If not, returns 400 Bad Request.
 pub async fn delete_user(payload: String) -> StatusCode {
     // parse the string to an account value
+    //TODO: use utils::verify in this
     let account: ClientAccount = serde_json::from_str(&payload).unwrap();
     println!("Parsed!");
     mongo::ping().await;

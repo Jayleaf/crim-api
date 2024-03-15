@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use super::structs::{Account, ClientAccount};
+use super::generics::structs::{Account, ClientAccount};
 use argon2::Argon2;
 use base64::{engine::general_purpose, Engine as _};
 use getrandom::getrandom;

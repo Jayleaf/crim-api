@@ -3,7 +3,7 @@ use getrandom::getrandom;
 use crate::db::mongo;
 use argon2::Argon2;
 use base64::{engine::general_purpose, Engine as _};
-use super::structs::{ClientAccount, Account};
+use super::generics::structs::{ClientAccount, Account};
 use openssl::{pkey::PKey, rsa::Rsa, symm::Cipher};
 
 /// Creates a user entry in the database. If it was successful, returns 200 OK. If not, returns 400 Bad Request.

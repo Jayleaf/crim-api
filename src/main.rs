@@ -2,7 +2,7 @@
 extern crate took_macro;
 
 mod routes;
-mod structs;
+mod generics;
 mod db;
 
 use axum::{

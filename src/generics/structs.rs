@@ -165,6 +165,10 @@ pub struct ClientAccount
 //----------------------------------------------//
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
+
+/// ## API
+/// 
+/// This contains a copy of the encrypted conversation key. The user who's name is attached to the `user` value is who's public key was used to encrypt it, and thus it can only be decrypted by the user with that name's attached.
 pub struct UserKey
 {
     owner: String,
@@ -193,5 +197,120 @@ impl UserKey
             .public_encrypt(key, &mut encrypted_key, Padding::PKCS1)
             .expect("failed to encrypt key");
         UserKey { owner: user.clone(), key: encrypted_key }
+    }
+}
+
+/// ## Client, API
+/// 
+/// Raw, unencrypted message value.
+/// 
+/// ```rust
+///   sender: String, // The username of the user who sent this message
+///   message: Vec<u8>, // The message payload
+///   time: String // The time the message was sent.
+/// ```
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawMessage
+{
+    pub sender: String,
+    pub message: Vec<u8>,
+    pub time: String
+}
+
+#[derive(Serialize, Deserialize, Clone, Default, Debug)]
+///  ##Client, API
+/// 
+/// This is pretty stupid, but necessary. This is used in the message modules, where we need both the user and session id but not the password (for security reasons), and the convo id.
+/// 
+/// ```rust
+///    username: String, // The username of the user who sent this payload
+///    conversation_id: String, // The conversation id of the conversation this payload is referring to
+///    session_id: String, // The session id of the user who sent this payload
+///    message: Option<RawMessage> // The message payload, if it exists. Not necessary for reception but necessary for sending.
+/// ```
+pub struct MessageUser
+{
+    pub username: String,
+    pub conversation_id: String,
+    pub session_id: String,
+    pub message: Option<RawMessage>
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct EncryptedMessage
+{
+    pub data: Vec<u8> // data contains a serialized message struct. see diagram in readme.md for more info.
+}
+
+impl EncryptedMessage
+{
+    fn from_document(doc: &Document) -> EncryptedMessage
+    {
+        let data: Vec<u8> = doc
+            .get("data")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_i64().unwrap() as u8)
+            .collect();
+        EncryptedMessage { data }
+    }
+}
+
+
+#[derive(Serialize)]
+pub struct Conversation
+{
+    pub id: String,
+    pub users: Vec<String>,
+    pub keys: Vec<UserKey>,
+    pub messages: Vec<EncryptedMessage>
+}
+
+impl Conversation
+{
+    pub fn from_document(doc: &Document) -> Conversation
+    {
+        let id: String = doc.get_str("id").unwrap().to_string();
+        let users: Vec<String> = doc
+            .get("users")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap().to_string())
+            .collect();
+        let messages: Vec<EncryptedMessage> = doc
+            .get("messages")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| EncryptedMessage::from_document(x.as_document().unwrap()))
+            .collect();
+        let keys: Vec<UserKey> = doc
+            .get("keys")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| UserKey::from_document(x.as_document().unwrap()))
+            .collect();
+        Conversation { id, users, messages, keys }
+    }
+
+    pub fn get(id: &str) -> Option<Conversation>
+    {
+        let doc: Option<Document> = mongo::get_collection("conversations")
+            .find_one(Some(doc! {"id": id}), None)
+            .unwrap();
+        match doc
+        {
+            Some(doc) => Some(Conversation::from_document(&doc)),
+            None => None
+        }
+        
+    
     }
 }
