@@ -1,14 +1,10 @@
 use axum::{http::StatusCode, response::IntoResponse};
-use crate::db::mongo;
-use super::generics::{utils, structs::{UserKey, MessageUser}};
+use mongodb::bson::doc;
+use crate::db::mongo::{self, get_collection};
+use super::generics::{utils, structs::{MessageUser, Conversation}};
 
-struct EncryptedMessages
-{
-    messages: Vec<String>,
-    key: UserKey
-}
-
-/// Retrieves the list of encrypted messages from the database, and returns them. Because the user (and only the user) knows their decrypted private key, the encrypted messages will be returned to them so they may decrypt it client side.
+/// Retrieves a conversation object from the database and returns it. Because the user (and only the user) knows their decrypted private key, we send them the entire conversation object (containing all messages, encrypted).
+/// Sending the entire object rather than just the messages allows convenience, because we can get the list of users as well, helping build the client-side conversation page with less work.
 /// 
 /// ## Parameters:
 /// ```rust
@@ -17,21 +13,17 @@ struct EncryptedMessages
 /// 
 /// ## Return Values:
 /// ```rust
-/// EncryptedMessageContainer // serialized
-/// {
-///    messages: Vec<EncryptedMessage> // Full list of encrypted messages
-///    key: UserKey // The key belonging to the calling client (their username attached) containing the conversation key
-/// }
+/// Conversation // serialized
 /// ```
 pub async fn recieve(payload: String) -> impl IntoResponse
 {
     let user: MessageUser = serde_json::from_str(&payload).unwrap();
     mongo::ping().await;
+    // validate sid
     if utils::verify(user.username.clone(), user.session_id.clone()).await
     {
-        let messages: Vec<String> = vec!["".to_string()];
-        let key: UserKey = 
-        return (StatusCode::OK, "".to_string());
+        let doc = Conversation::get(&user.conversation_id).await.unwrap();
+        return (StatusCode::OK, serde_json::to_string(&doc).unwrap());
     }
     (StatusCode::BAD_REQUEST, "Invalid session".to_string())
 }

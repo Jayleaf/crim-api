@@ -4,7 +4,7 @@
 //                                              //
 //----------------------------------------------//
 
-use mongodb::{bson::{self, Document,}};
+use mongodb::bson::{self, doc, Document};
 use openssl::{pkey::{Private, Public}, rsa::{Padding, Rsa}};
 use serde::{Deserialize, Serialize};
 use super::mongo;
@@ -166,7 +166,7 @@ pub struct ClientAccount
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 
-/// ## API
+/// ## Client, API
 /// 
 /// This contains a copy of the encrypted conversation key. The user who's name is attached to the `user` value is who's public key was used to encrypt it, and thus it can only be decrypted by the user with that name's attached.
 pub struct UserKey
@@ -258,7 +258,6 @@ impl EncryptedMessage
     }
 }
 
-
 #[derive(Serialize)]
 pub struct Conversation
 {
@@ -300,10 +299,10 @@ impl Conversation
         Conversation { id, users, messages, keys }
     }
 
-    pub fn get(id: &str) -> Option<Conversation>
+    pub async fn get(id: &str) -> Option<Conversation>
     {
-        let doc: Option<Document> = mongo::get_collection("conversations")
-            .find_one(Some(doc! {"id": id}), None)
+        let doc: Option<Document> = mongo::get_collection("conversations").await
+            .find_one(Some(doc! {"id": id}), None).await
             .unwrap();
         match doc
         {
