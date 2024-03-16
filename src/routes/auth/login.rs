@@ -38,7 +38,7 @@ pub async fn login_user(payload: String) -> impl IntoResponse {
                 else
                 {
                     // Returned if the password is invalid
-                    return (StatusCode::BAD_REQUEST, "".to_string())
+                    return (StatusCode::UNAUTHORIZED, "".to_string())
                 }
 
     }
