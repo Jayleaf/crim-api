@@ -87,6 +87,26 @@ impl Account
         }
     }
 
+    pub async fn get_account_by_sid(session_id: &String) -> Option<Account>
+    {
+        let doc = mongo::get_collection("accounts").await.find(
+            bson::doc! { "session_id": session_id },
+            None
+        ).await;
+        match doc
+        {
+            Err(_) => panic!("An error occurred querying the database for an account."),
+            Ok(mut doc) => {
+                if doc.advance().await.unwrap() == false
+                {
+                    return None;
+                }
+                let doc = Account::from_document(doc.current().try_into().unwrap());
+                return Some(doc);
+            }
+        }
+    }
+
     /// Takes in an account value reference, and updates the first database entry with the same username. If the update is successful, it will return the account. If not, it will return an error. Most errors from this will likely be from trying to update a non-existent account.
     pub async fn update_account(new: &Account) -> Result<Account, mongodb::error::Error>
     {
@@ -155,7 +175,8 @@ pub struct ClientAccount
 {
     pub username: String,
     pub password: String,
-    pub session_id: String,
+    pub friends: Vec<String>,
+    pub session_id: String
 }
 
 //----------------------------------------------//

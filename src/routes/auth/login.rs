@@ -45,7 +45,9 @@ pub async fn login_user(payload: String) -> impl IntoResponse {
     else
     {
         // Returned if the account doesn't exist
-        return (StatusCode::BAD_REQUEST, "".to_string())
+        // + StatusCode::UNAUTHORIZED
+        // - StatusCode::BAD_REQUEST
+        return (StatusCode::UNAUTHORIZED, "".to_string())
         
     }
 }
