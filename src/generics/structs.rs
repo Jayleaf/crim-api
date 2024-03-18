@@ -176,6 +176,8 @@ pub struct ClientAccount
     pub username: String,
     pub password: String,
     pub friends: Vec<String>,
+    /// This could get really thick if the conversations are too big. Will load test eventually.
+    pub conversations: Vec<Conversation>,
     pub session_id: String
 }
 
@@ -257,7 +259,7 @@ pub struct MessageUser
     pub message: Option<RawMessage>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct EncryptedMessage
 {
     pub data: Vec<u8> // data contains a serialized message struct. see diagram in readme.md for more info.
@@ -279,7 +281,7 @@ impl EncryptedMessage
     }
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct Conversation
 {
     pub id: String,

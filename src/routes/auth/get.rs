@@ -1,22 +1,20 @@
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use mongodb::bson::{self, doc, Document};
+use mongodb::bson::{doc, Document};
+use crate::generics::structs::Conversation;
+
 use super::{mongo, generics::structs::{Account, ClientAccount}};
-use argon2::Argon2;
-use base64::{engine::general_purpose, Engine as _};
-use getrandom::getrandom;
 
 ///Local to get.rs, no need to put it in structs.rs
 
-#[derive(serde::Serialize, serde::Deserialize)]
-struct GetResult
-{
-    username: String,
-    friends: Vec<String>,
-    convos: Vec<Document>
-}
-
 /// Gets a users data from the database.
+/// 
+/// ## Arguments
+/// * [`payload`][`std::string::String`] - A JSON string containing a serialized SID.
+/// 
+/// ## Returns
+/// * [`(StatusCode, String)`][axum::response::Response] - A tuple containing the status code of the request and a serialized [`ClientAccount`] value.
+/// 
 pub async fn get(payload: String) -> impl IntoResponse 
 {
     // payload is gonna be a session ID
@@ -34,6 +32,7 @@ pub async fn get(payload: String) -> impl IntoResponse
                 Ok(mut cursor) => 
                 {
                     let mut convos: Vec<Document> = Vec::new();
+                    // i <3 asynchronous rust
                     if cursor.advance().await.unwrap() == true
                     {
                         convos.push(cursor.current().try_into().unwrap());
@@ -44,7 +43,14 @@ pub async fn get(payload: String) -> impl IntoResponse
                 Err(_) => return (StatusCode::BAD_REQUEST, "".to_string())
             }
         };
-        let result = GetResult {username, friends, convos};
+        let result = ClientAccount
+        {
+            username, 
+            password: "".to_string(), 
+            friends, 
+            conversations: convos.into_iter().map(|x| Conversation::from_document(&x)).collect(), 
+            session_id: "".to_string()
+        };
         return (StatusCode::OK, serde_json::to_string(&result).unwrap());
     }
     else
