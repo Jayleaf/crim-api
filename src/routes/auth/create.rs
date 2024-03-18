@@ -1,22 +1,36 @@
-use axum::{http::StatusCode, response::IntoResponse};
-use getrandom::getrandom;
+use super::generics::structs::{Account, ClientAccount};
 use crate::db::mongo;
 use argon2::Argon2;
+use axum::{http::StatusCode, response::IntoResponse};
 use base64::{engine::general_purpose, Engine as _};
-use super::generics::structs::{ClientAccount, Account};
+use getrandom::getrandom;
 use openssl::{pkey::PKey, rsa::Rsa, symm::Cipher};
 
 /// Creates a user entry in the database. If it was successful, returns 200 OK. If not, returns 400 Bad Request.
-pub async fn create_user(payload: String) -> impl IntoResponse {
+///
+/// ## Arguments
+/// * [`payload`][`std::string::String`] - A JSON string containing a serialized ClientAccount of the account to create.
+///
+/// ## Returns
+/// * [`StatusCode`][`axum::http::StatusCode`] - The status code of the operation:
+///    * 200 OK if the account was created successfully
+///    * 400 BAD REQUEST if the account already exists
+///
+pub async fn create_user(payload: String) -> impl IntoResponse
+{
     // parse the string to an account value
     let account: ClientAccount = serde_json::from_str(&payload).unwrap();
     mongo::ping().await;
-    if Account::get_account(&account.username).await.is_some() {
-        // if an account with the username exists, return a 400 Bad Request with a reason.
-        return (StatusCode::BAD_REQUEST, "Duplicate username".to_string())
+
+    // check for duplicate username
+    if Account::get_account(&account.username)
+        .await
+        .is_some()
+    {
+        return (StatusCode::BAD_REQUEST, "Duplicate username".to_string());
     }
     // create account
-    
+
     // first, create pw hash
     let mut salt: [u8; 32] = [0u8; 32];
     getrandom(&mut salt).expect("Failed to generate a random salt");
@@ -45,8 +59,9 @@ pub async fn create_user(payload: String) -> impl IntoResponse {
         session_id: "".to_string()
     };
     // write account value to database
-    match Account::create_account(&account).await {
+    match Account::create_account(&account).await
+    {
         Ok(_) => return (StatusCode::OK, "".to_string()),
         Err(_) => return (StatusCode::BAD_REQUEST, "Error occurred saving account to database.".to_string())
-    }  
+    }
 }

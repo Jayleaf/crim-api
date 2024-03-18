@@ -1,23 +1,23 @@
+use crate::generics::structs::Conversation;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use mongodb::bson::{doc, Document};
-use crate::generics::structs::Conversation;
 
-use super::{mongo, generics::structs::{Account, ClientAccount}};
-
-///Local to get.rs, no need to put it in structs.rs
+use super::{
+    generics::structs::{Account, ClientAccount}, mongo
+};
 
 /// Gets a users data from the database.
-/// 
+///
 /// ## Arguments
 /// * [`payload`][`std::string::String`] - A JSON string containing a serialized SID.
-/// 
+///
 /// ## Returns
-/// * [`(StatusCode, String)`][axum::response::Response] - A tuple containing the status code of the request and a serialized [`ClientAccount`] value.
-/// 
-pub async fn get(payload: String) -> impl IntoResponse 
+/// * [`(StatusCode, String)`][axum::response::Response] - A tuple containing the [`StatusCode`] of the request and a serialized [`ClientAccount`] value.
+///
+pub async fn get(payload: String) -> impl IntoResponse
 {
-    // payload is gonna be a session ID
+
     mongo::ping().await;
     if let Some(server_account) = Account::get_account_by_sid(&payload).await
     {
@@ -27,9 +27,12 @@ pub async fn get(payload: String) -> impl IntoResponse
         // now, get all current conversations. Guess who didn't make a way to retrieve all a user's conversations? This guy.
         let convos = 
         {
-            match mongo::get_collection("conversations").await.find(doc! {"users": &username}, None).await
+            match mongo::get_collection("conversations")
+                .await
+                .find(doc! {"users": &username}, None)
+                .await
             {
-                Ok(mut cursor) => 
+                Ok(mut cursor) =>
                 {
                     let mut convos: Vec<Document> = Vec::new();
                     // i <3 asynchronous rust
@@ -38,26 +41,29 @@ pub async fn get(payload: String) -> impl IntoResponse
                         convos.push(cursor.current().try_into().unwrap());
                     }
                     convos
-                },
+                }
                 // user has no convos
                 Err(_) => return (StatusCode::BAD_REQUEST, "".to_string())
             }
         };
-        let result = ClientAccount
+        let result = ClientAccount 
         {
-            username, 
-            password: "".to_string(), 
-            friends, 
-            conversations: convos.into_iter().map(|x| Conversation::from_document(&x)).collect(), 
+            username,
+            password: "".to_string(),
+            friends,
+            conversations: convos
+                .into_iter()
+                .map(|x| Conversation::from_document(&x))
+                .collect(),
             session_id: "".to_string()
         };
         return (StatusCode::OK, serde_json::to_string(&result).unwrap());
     }
     else
     {
-            // Returned if SID can't be found.
-            // + StatusCode::UNAUTHORIZED
-            // - StatusCode::BAD_REQUEST
-            return (StatusCode::UNAUTHORIZED, "".to_string())
+        // Returned if SID can't be found.
+        // + StatusCode::UNAUTHORIZED
+        // - StatusCode::BAD_REQUEST
+        return (StatusCode::UNAUTHORIZED, "".to_string());
     }
 }

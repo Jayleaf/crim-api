@@ -4,11 +4,12 @@
 //                                              //
 //----------------------------------------------//
 
-use mongodb::bson::{self, doc, Document};
-use openssl::{pkey::{Private, Public}, rsa::{Padding, Rsa}};
-use serde::{Deserialize, Serialize};
 use super::mongo;
-
+use mongodb::bson::{self, doc, Document};
+use openssl::{
+    pkey::{Private, Public}, rsa::{Padding, Rsa}
+};
+use serde::{Deserialize, Serialize};
 
 //----------------------------------------------//
 //                                              //
@@ -60,23 +61,22 @@ impl Account
                 .iter()
                 .map(|x| x.as_str().unwrap().to_string())
                 .collect(),
-            session_id: doc.get_str("session_id")
-                .unwrap()
-                .to_string()
+            session_id: doc.get_str("session_id").unwrap().to_string()
         }
     }
 
     /// Takes in a string, finds the matching account in the database, and returns it. Will return none if no account is found, or will panic if it fails to access a database.
     pub async fn get_account(username: &String) -> Option<Account>
     {
-        let doc = mongo::get_collection("accounts").await.find(
-            bson::doc! { "username": username },
-            None
-        ).await;
+        let doc = mongo::get_collection("accounts")
+            .await
+            .find(bson::doc! { "username": username }, None)
+            .await;
         match doc
         {
             Err(_) => panic!("An error occurred querying the database for an account."),
-            Ok(mut doc) => {
+            Ok(mut doc) =>
+            {
                 if doc.advance().await.unwrap() == false
                 {
                     return None;
@@ -89,14 +89,15 @@ impl Account
 
     pub async fn get_account_by_sid(session_id: &String) -> Option<Account>
     {
-        let doc = mongo::get_collection("accounts").await.find(
-            bson::doc! { "session_id": session_id },
-            None
-        ).await;
+        let doc = mongo::get_collection("accounts")
+            .await
+            .find(bson::doc! { "session_id": session_id }, None)
+            .await;
         match doc
         {
             Err(_) => panic!("An error occurred querying the database for an account."),
-            Ok(mut doc) => {
+            Ok(mut doc) =>
+            {
                 if doc.advance().await.unwrap() == false
                 {
                     return None;
@@ -110,36 +111,31 @@ impl Account
     /// Takes in an account value reference, and updates the first database entry with the same username. If the update is successful, it will return the account. If not, it will return an error. Most errors from this will likely be from trying to update a non-existent account.
     pub async fn update_account(new: &Account) -> Result<Account, mongodb::error::Error>
     {
-        let result = mongo::get_collection("accounts").await.update_one(
-            bson::doc! { "username": &new.username },
-            bson::doc! { "$set": bson::to_document(&new).unwrap() },
-            None
-        ).await;
+        let result = mongo::get_collection("accounts")
+            .await
+            .update_one(bson::doc! { "username": &new.username }, bson::doc! { "$set": bson::to_document(&new).unwrap() }, None)
+            .await;
         match result
         {
-            Ok(_) =>
-            {
-                Ok(Account::from_document(
-                    mongo::get_collection("accounts").await.find_one(
-                        bson::doc! { "username": &new.username },
-                        None
-                    ).await
+            Ok(_) => Ok(Account::from_document(
+                mongo::get_collection("accounts")
+                    .await
+                    .find_one(bson::doc! { "username": &new.username }, None)
+                    .await
                     .unwrap()
                     .unwrap()
-                    )
-                )
-            }
+            )),
             Err(result) => Err(result)
         }
-    } 
+    }
 
     /// Finds the first instance of a database account entry with a given username, and removes it. Returns an empty result.
     pub async fn delete_account(username: &String) -> Result<(), mongodb::error::Error>
     {
-        match mongo::get_collection("accounts").await.delete_one(
-            bson::doc! { "username": username },
-            None
-        ).await
+        match mongo::get_collection("accounts")
+            .await
+            .delete_one(bson::doc! { "username": username }, None)
+            .await
         {
             Ok(_) => Ok(()),
             Err(result) => Err(result)
@@ -150,25 +146,24 @@ impl Account
     pub async fn create_account(new: &Account) -> Result<Account, mongodb::error::Error>
     {
         println!("Creating account...");
-        let result = mongo::get_collection("accounts").await.insert_one(
-            bson::to_document(&new).unwrap(),
-            None
-        ).await;
+        let result = mongo::get_collection("accounts")
+            .await
+            .insert_one(bson::to_document(&new).unwrap(), None)
+            .await;
         match result
         {
             Ok(_) => Ok(Account::from_document(
-                mongo::get_collection("accounts").await.find_one(
-                    bson::doc! { "username": &new.username },
-                    None
-                ).await
-                .unwrap()
-                .unwrap()
-                )
-            ),
+                mongo::get_collection("accounts")
+                    .await
+                    .find_one(bson::doc! { "username": &new.username }, None)
+                    .await
+                    .unwrap()
+                    .unwrap()
+            )),
             Err(result) => Err(result)
         }
     }
-}  
+}
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct ClientAccount
@@ -190,7 +185,7 @@ pub struct ClientAccount
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 
 /// ## Client, API
-/// 
+///
 /// This contains a copy of the encrypted conversation key. The user who's name is attached to the `user` value is who's public key was used to encrypt it, and thus it can only be decrypted by the user with that name's attached.
 pub struct UserKey
 {
@@ -209,24 +204,33 @@ impl UserKey
             .iter()
             .map(|x| x.as_i64().unwrap() as u8)
             .collect();
-        UserKey { owner, key }
+        UserKey {
+            owner,
+            key
+        }
     }
     pub async fn encrypt(key: &[u8], user: &String) -> UserKey
     {
-        let pub_key: Vec<u8> = Account::get_account(user).await.unwrap().public_key;
+        let pub_key: Vec<u8> = Account::get_account(user)
+            .await
+            .unwrap()
+            .public_key;
         let pub_key: Rsa<Public> = Rsa::public_key_from_pem(pub_key.as_slice()).expect("Failed to retrieve a public key from database.");
         let mut encrypted_key: Vec<u8> = vec![0; pub_key.size() as usize];
         pub_key
             .public_encrypt(key, &mut encrypted_key, Padding::PKCS1)
             .expect("failed to encrypt key");
-        UserKey { owner: user.clone(), key: encrypted_key }
+        UserKey {
+            owner: user.clone(),
+            key: encrypted_key
+        }
     }
 }
 
 /// ## Client, API
-/// 
+///
 /// Raw, unencrypted message value.
-/// 
+///
 /// ```rust
 ///   sender: String, // The username of the user who sent this message
 ///   message: Vec<u8>, // The message payload
@@ -242,9 +246,9 @@ pub struct RawMessage
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 ///  ##Client, API
-/// 
+///
 /// This is pretty stupid, but necessary. This is used in the message modules, where we need both the user and session id but not the password (for security reasons), and the convo id.
-/// 
+///
 /// ```rust
 ///    username: String, // The username of the user who sent this payload
 ///    conversation_id: String, // The conversation id of the conversation this payload is referring to
@@ -277,7 +281,9 @@ impl EncryptedMessage
             .iter()
             .map(|x| x.as_i64().unwrap() as u8)
             .collect();
-        EncryptedMessage { data }
+        EncryptedMessage {
+            data
+        }
     }
 }
 
@@ -319,20 +325,25 @@ impl Conversation
             .iter()
             .map(|x| UserKey::from_document(x.as_document().unwrap()))
             .collect();
-        Conversation { id, users, messages, keys }
+        Conversation {
+            id,
+            users,
+            messages,
+            keys
+        }
     }
 
     pub async fn get(id: &str) -> Option<Conversation>
     {
-        let doc: Option<Document> = mongo::get_collection("conversations").await
-            .find_one(Some(doc! {"id": id}), None).await
+        let doc: Option<Document> = mongo::get_collection("conversations")
+            .await
+            .find_one(Some(doc! {"id": id}), None)
+            .await
             .unwrap();
         match doc
         {
             Some(doc) => Some(Conversation::from_document(&doc)),
             None => None
         }
-        
-    
     }
 }
