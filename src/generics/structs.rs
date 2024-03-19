@@ -9,6 +9,7 @@ use mongodb::bson::{self, doc, Document};
 use openssl::{
     pkey::{Private, Public}, rsa::{Padding, Rsa}
 };
+use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 
 //----------------------------------------------//
@@ -237,9 +238,10 @@ impl UserKey
 ///   time: String // The time the message was sent.
 /// ```
 #[derive(Serialize, Deserialize, Clone, Debug)]
+
+//TODO: updated this. Please update the respective struct client-side.
 pub struct RawMessage
 {
-    pub sender: String,
     pub message: Vec<u8>,
     pub time: String
 }
@@ -266,7 +268,10 @@ pub struct MessageUser
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct EncryptedMessage
 {
-    pub data: Vec<u8> // data contains a serialized message struct. see diagram in readme.md for more info.
+    pub data: Vec<u8>,
+    pub sender: String,
+    pub dest_convo_id: String,
+    pub sender_sid: String,
 }
 
 impl EncryptedMessage
@@ -282,7 +287,10 @@ impl EncryptedMessage
             .map(|x| x.as_i64().unwrap() as u8)
             .collect();
         EncryptedMessage {
-            data
+            data,
+            sender: String::new(),
+            dest_convo_id: String::new(),
+            sender_sid: String::new()
         }
     }
 }
@@ -346,4 +354,28 @@ impl Conversation
             None => None
         }
     }
+
+    pub async fn send(&mut self, message: EncryptedMessage) -> StatusCode
+    {
+        // strip message of all identifying data
+        let message: EncryptedMessage = EncryptedMessage
+        {
+            data: message.data,
+            sender: String::new(),
+            dest_convo_id: String::new(),
+            sender_sid: String::new()
+        };
+        self.messages.push(message);
+        // update conversation in database
+        match mongo::get_collection("conversations").await.find_one_and_update(
+            doc! {"id": &self.id},
+            doc! {"$set": bson::to_document(&self).unwrap()},
+            None
+        ).await
+        {
+            Ok(_) => return StatusCode::OK,
+            Err(_) => return StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }      
 }
+
