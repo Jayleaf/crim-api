@@ -16,6 +16,7 @@ async fn main()
     // build routes
     // TODO: rate limiting
     println!("{}", String::new());
+    db::mongo::ping().await;
     let app = Router::new()
         .route("/api/auth/create", post(routes::auth::create::create_user))
         .route("/api/auth/delete", post(routes::auth::delete::delete_user))
