@@ -2,7 +2,6 @@ use mongodb::{
     bson::doc, bson::Document, options::{ServerApi, ServerApiVersion}, Collection, Database
 };
 use mongodb::{options::ClientOptions, Client};
-use took::{took, Took};
 
 async fn init_mongo() -> mongodb::error::Result<Client>
 {
