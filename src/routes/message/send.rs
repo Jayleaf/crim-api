@@ -25,7 +25,7 @@ pub async fn send(payload: String) -> impl IntoResponse
     if utils::verify(&message.sender, &message.sender_sid).await
     {
         // retrieve conversation
-        match Conversation::get(&message.dest_convo_id).await
+        match Conversation::get_one(&message.dest_convo_id).await
         {
             Some(mut convo) =>
             {

@@ -5,7 +5,7 @@
 //----------------------------------------------//
 
 use super::mongo;
-use mongodb::bson::{self, doc, Document};
+use mongodb::{bson::{self, doc, Document}, Cursor};
 use openssl::{
     pkey::{Private, Public}, rsa::{Padding, Rsa}
 };
@@ -286,9 +286,10 @@ impl EncryptedMessage
             .iter()
             .map(|x| x.as_i64().unwrap() as u8)
             .collect();
+        let sender: String = doc.get_str("sender").unwrap().to_string();
         EncryptedMessage {
             data,
-            sender: String::new(),
+            sender,
             dest_convo_id: String::new(),
             sender_sid: String::new()
         }
@@ -341,7 +342,27 @@ impl Conversation
         }
     }
 
-    pub async fn get(id: &str) -> Option<Conversation>
+    pub async fn get_all(username: &String) -> Option<Vec<Conversation>>
+    {
+        let mut convos: Vec<Conversation> = Vec::new();
+        let mut doc: Cursor<Document> = mongo::get_collection("conversations")
+            .await
+            .find(Some(doc! {"users": username}), None)
+            .await
+            .unwrap();
+        while doc.advance().await.unwrap() == true
+        {
+            // can't iterate over an async cursor so this is ugly
+            convos.push(Conversation::from_document(&doc.current().try_into().unwrap()));
+        }
+        if convos.is_empty()
+        {
+            return None;
+        }
+        Some(convos)
+    }
+
+    pub async fn get_one(id: &String) -> Option<Conversation>
     {
         let doc: Option<Document> = mongo::get_collection("conversations")
             .await
@@ -357,11 +378,11 @@ impl Conversation
 
     pub async fn send(&mut self, message: EncryptedMessage) -> StatusCode
     {
-        // strip message of all identifying data
+        // strip message of all identifying data (except sender)
         let message: EncryptedMessage = EncryptedMessage
         {
             data: message.data,
-            sender: String::new(),
+            sender: message.sender,
             dest_convo_id: String::new(),
             sender_sid: String::new()
         };
