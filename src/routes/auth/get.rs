@@ -1,3 +1,5 @@
+use std::f32::consts::E;
+
 use crate::generics::structs::Conversation;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -43,7 +45,7 @@ pub async fn get(payload: String) -> impl IntoResponse
                     convos
                 }
                 // user has no convos
-                Err(_) => return (StatusCode::BAD_REQUEST, "".to_string())
+                Err(_) => Vec::new()
             }
         };
         let result = ClientAccount 

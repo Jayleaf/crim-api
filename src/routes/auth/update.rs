@@ -89,7 +89,7 @@ pub async fn update(payload: String) -> impl IntoResponse
                 return (StatusCode::NOT_FOUND, "".to_string());
             }
             // replace the target user in account.friends with the same user, removing the "T_" because it was only a tag to specify which friend was the target of the action.
-            server_account.friends.push(target);
+            server_account.friends.push(target.clone());
             server_account.friends = account
                 .friends
                 .into_iter()
@@ -108,7 +108,20 @@ pub async fn update(payload: String) -> impl IntoResponse
                         conversations: account.conversations,
                         session_id: data.session_id
                     };
-                    return (StatusCode::OK, serde_json::to_string(&returndata).unwrap());
+                    // add you to the other person's friends list
+                    match Account::get_account(&target).await
+                    {
+                        Some(mut target_account) =>
+                        {
+                            target_account.friends.push(server_account.username);
+                            match Account::update_account(&target_account).await
+                            {
+                                Ok(_) => return (StatusCode::OK, serde_json::to_string(&returndata).unwrap()),
+                                Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "".to_string())
+                            }
+                        }
+                        None => return (StatusCode::INTERNAL_SERVER_ERROR, "".to_string())
+                    }
                 }
                 // Returned if account failed to update
                 Err(_) =>
@@ -116,6 +129,7 @@ pub async fn update(payload: String) -> impl IntoResponse
                     return (StatusCode::INTERNAL_SERVER_ERROR, "".to_string());
                 }
             }
+            
         }
     }
     else
