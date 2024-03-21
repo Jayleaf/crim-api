@@ -13,10 +13,11 @@ use super::structs::Account;
 /// * [`bool`][`std::primitive::bool`] // True if the session id is valid, false if it is not
 ///
 ///
-pub async fn verify(username: &String, session_id: &String) -> Result<bool, ()>
+pub async fn verify(username: &String, session_id: &String) -> Result<bool, String>
 {
-    let Some(account) = Account::get_account(&username).await else { return Err(()); };
-    Ok(&account.session_id == session_id)
+    let Ok(account) = Account::get_account(&username).await else { return Err(String::from("placeholder (i want err value from get_account")); };
+    if let Some(account) = account { return Ok(&account.session_id == session_id); }
+    else { return Err(gen_err("Tried to validate with a non-existent account.")); }
 }
 
 pub fn rand_hex() -> String
