@@ -21,8 +21,7 @@ async fn init_mongo() -> mongodb::error::Result<Client>
     Ok(client)
 }
 
-#[took(description = "Pinged database: ")]
-pub async fn ping() { init_mongo().await.unwrap(); }
+pub async fn ping() -> Result<(), ()> { init_mongo().await.map(|_| ()).map_err(|_| ()) }
 pub async fn get_database(name: &str) -> Database { init_mongo().await.unwrap().database(name) }
 pub async fn get_collection(name: &str) -> Collection<Document>
 {

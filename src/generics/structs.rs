@@ -4,7 +4,7 @@
 //                                              //
 //----------------------------------------------//
 
-use super::mongo;
+use super::{mongo, utils};
 use axum::http::StatusCode;
 use mongodb::{
     bson::{self, doc, Document}, Cursor
@@ -69,25 +69,28 @@ impl Account
     }
 
     /// Takes in a string, finds the matching account in the database, and returns it. Will return none if no account is found, or will panic if it fails to access a database.
-    pub async fn get_account(username: &String) -> Option<Account>
+    pub async fn get_account(username: &String) -> Result<Option<Account>, ()>
     {
-        let doc = mongo::get_collection("accounts")
+        if let Err(_) = mongo::ping().await
+        {
+            return Err(());
+        }
+
+        let Ok(mut doc) = mongo::get_collection("accounts")
             .await
             .find(bson::doc! { "username": username }, None)
-            .await;
-        match doc
+            .await
+        else
         {
-            Err(_) => panic!("An error occurred querying the database for an account."),
-            Ok(mut doc) =>
-            {
-                if doc.advance().await.unwrap() == false
-                {
-                    return None;
-                }
-                let doc = Account::from_document(doc.current().try_into().unwrap());
-                return Some(doc);
-            }
+            return Err(());
+        };
+
+        if doc.advance().await.unwrap() == false
+        {
+            return Ok(None);
         }
+        let doc = Account::from_document(doc.current().try_into().unwrap());
+        Ok(Some(doc))
     }
 
     pub async fn get_account_by_sid(session_id: &String) -> Option<Account>
@@ -219,21 +222,22 @@ impl UserKey
             key
         }
     }
-    pub async fn encrypt(key: &[u8], user: &String) -> UserKey
+    pub async fn encrypt(key: &[u8], user: &String) -> Result<UserKey, String>
     {
-        let pub_key: Vec<u8> = Account::get_account(user)
-            .await
-            .unwrap()
-            .public_key;
-        let pub_key: Rsa<Public> = Rsa::public_key_from_pem(pub_key.as_slice()).expect("Failed to retrieve a public key from database.");
+        let Ok(Some(account)) = Account::get_account(user).await
+        else { return Err(utils::gen_err("Error retrieving account from database.")) };
+
+        let Ok(pub_key) = Rsa::public_key_from_pem(account.public_key.as_slice())
+        else { return Err(utils::gen_err("Error retrieving public key from database.")) };
+
         let mut encrypted_key: Vec<u8> = vec![0; pub_key.size() as usize];
         pub_key
             .public_encrypt(key, &mut encrypted_key, Padding::PKCS1)
             .expect("failed to encrypt key");
-        UserKey {
+        Ok(UserKey {
             owner: user.clone(),
             key: encrypted_key
-        }
+        })
     }
 }
 

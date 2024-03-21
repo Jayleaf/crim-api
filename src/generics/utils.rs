@@ -1,7 +1,6 @@
 use rand::RngCore;
 
 use super::structs::Account;
-use crate::db::mongo;
 
 /// Verify a user's session
 ///
@@ -14,12 +13,10 @@ use crate::db::mongo;
 /// * [`bool`][`std::primitive::bool`] // True if the session id is valid, false if it is not
 ///
 ///
-pub async fn verify(username: &String, session_id: &String) -> bool
+pub async fn verify(username: &String, session_id: &String) -> Result<bool, ()>
 {
-    mongo::ping().await;
-    println!("username: {}", username);
-    let account: Account = Account::get_account(&username).await.expect("Failed to get account");
-    &account.session_id == session_id
+    let Some(account) = Account::get_account(&username).await else { return Err(()); };
+    Ok(&account.session_id == session_id)
 }
 
 pub fn rand_hex() -> String
@@ -27,4 +24,9 @@ pub fn rand_hex() -> String
     let mut bytes = [0; 4];
     rand::thread_rng().fill_bytes(&mut bytes);
     hex::encode(bytes)
+}
+
+pub fn gen_err(msg: &str) -> String
+{
+    return format!("{} ({})", msg, std::env::current_dir().unwrap().to_str().unwrap().to_string());
 }

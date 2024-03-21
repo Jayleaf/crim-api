@@ -4,7 +4,7 @@ use argon2::Argon2;
 use axum::{http::StatusCode, response::IntoResponse};
 use base64::{engine::general_purpose, Engine as _};
 use getrandom::getrandom;
-use openssl::{pkey::PKey, rsa::Rsa, symm::Cipher};
+use openssl::{pkey::{PKey, Private}, rsa::Rsa, symm::Cipher};
 
 /// Creates a user entry in the database. If it was successful, returns 200 OK. If not, returns 400 Bad Request.
 ///
@@ -20,12 +20,12 @@ pub async fn create_user(payload: String) -> impl IntoResponse
 {
     // parse the string to an account value
     let account: ClientAccount = serde_json::from_str(&payload).unwrap();
-    mongo::ping().await;
+    if let Err(_) = mongo::ping().await
+    {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Error occurred connecting to database.".to_string());
+    }
 
-    // check for duplicate username
-    if Account::get_account(&account.username)
-        .await
-        .is_some()
+    if let None = Account::get_account(&account.username).await
     {
         return (StatusCode::BAD_REQUEST, "Duplicate username".to_string());
     }
@@ -41,7 +41,7 @@ pub async fn create_user(payload: String) -> impl IntoResponse
     let base64_encoded = general_purpose::STANDARD.encode(output);
     // then, gen public and private keys
 
-    let pkey: PKey<openssl::pkey::Private> = PKey::from_rsa(Rsa::generate(2048).unwrap()).unwrap();
+    let pkey: PKey<Private> = PKey::from_rsa(Rsa::generate(2048).unwrap()).unwrap();
     let cipher: Cipher = Cipher::aes_256_cbc();
     let public_key: Vec<u8> = pkey.public_key_to_pem().unwrap();
     let private_key: Vec<u8> = pkey
@@ -49,7 +49,7 @@ pub async fn create_user(payload: String) -> impl IntoResponse
         .unwrap();
 
     // build account value
-    let account = Account {
+    let account: Account = Account {
         username: account.username,
         hash: base64_encoded,
         salt: salt.to_vec(),
