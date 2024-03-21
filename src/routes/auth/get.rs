@@ -19,7 +19,6 @@ use super::{
 ///
 pub async fn get(payload: String) -> impl IntoResponse
 {
-
     mongo::ping().await;
     if let Some(server_account) = Account::get_account_by_sid(&payload).await
     {
@@ -27,8 +26,7 @@ pub async fn get(payload: String) -> impl IntoResponse
         let username = server_account.username;
         let friends = server_account.friends;
         // now, get all current conversations. Guess who didn't make a way to retrieve all a user's conversations? This guy.
-        let convos = 
-        {
+        let convos = {
             match mongo::get_collection("conversations")
                 .await
                 .find(doc! {"users": &username}, None)
@@ -48,8 +46,7 @@ pub async fn get(payload: String) -> impl IntoResponse
                 Err(_) => Vec::new()
             }
         };
-        let result = ClientAccount 
-        {
+        let result = ClientAccount {
             username,
             password: "".to_string(),
             friends,

@@ -5,11 +5,13 @@
 //----------------------------------------------//
 
 use super::mongo;
-use mongodb::{bson::{self, doc, Document}, Cursor};
+use axum::http::StatusCode;
+use mongodb::{
+    bson::{self, doc, Document}, Cursor
+};
 use openssl::{
     pkey::{Private, Public}, rsa::{Padding, Rsa}
 };
-use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 
 //----------------------------------------------//
@@ -196,6 +198,13 @@ pub struct UserKey
 
 impl UserKey
 {
+    pub fn to_document(&self) -> Document
+    {
+        doc! {
+            "owner": &self.owner,
+            "key": &self.key.iter().map(|x| *x as i32).collect::<Vec<i32>>() // without this, they would be converted to i64s for some reason. If they were left as i64s, the .send() function would break.
+        }
+    }
     pub fn from_document(doc: &Document) -> UserKey
     {
         let owner: String = doc.get_str("owner").unwrap().to_string();
@@ -203,7 +212,7 @@ impl UserKey
             .get_array("key")
             .unwrap()
             .iter()
-            .map(|x| x.as_i64().unwrap() as u8)
+            .map(|x| x.as_i32().unwrap() as u8)
             .collect();
         UserKey {
             owner,
@@ -271,7 +280,7 @@ pub struct EncryptedMessage
     pub data: Vec<u8>,
     pub sender: String,
     pub dest_convo_id: String,
-    pub sender_sid: String,
+    pub sender_sid: String
 }
 
 impl EncryptedMessage
@@ -284,7 +293,7 @@ impl EncryptedMessage
             .as_array()
             .unwrap()
             .iter()
-            .map(|x| x.as_i64().unwrap() as u8)
+            .map(|x| x.as_i32().unwrap() as u8)
             .collect();
         let sender: String = doc.get_str("sender").unwrap().to_string();
         EncryptedMessage {
@@ -307,6 +316,15 @@ pub struct Conversation
 
 impl Conversation
 {
+    pub fn to_document(&self) -> Document
+    {
+        doc! {
+            "id": &self.id,
+            "users": &self.users.iter().map(|x| x.as_str()).collect::<Vec<&str>>(),
+            "keys": &self.keys.iter().map(|x| x.to_document()).collect::<Vec<Document>>(),
+            "messages": &self.messages.iter().map(|x| bson::to_document(&x).unwrap()).collect::<Vec<Document>>()
+        }
+    }
     pub fn from_document(doc: &Document) -> Conversation
     {
         let id: String = doc.get_str("id").unwrap().to_string();
@@ -379,8 +397,7 @@ impl Conversation
     pub async fn send(&mut self, message: EncryptedMessage) -> StatusCode
     {
         // strip message of all identifying data (except sender)
-        let message: EncryptedMessage = EncryptedMessage
-        {
+        let message: EncryptedMessage = EncryptedMessage {
             data: message.data,
             sender: message.sender,
             dest_convo_id: String::new(),
@@ -388,15 +405,13 @@ impl Conversation
         };
         self.messages.push(message);
         // update conversation in database
-        match mongo::get_collection("conversations").await.find_one_and_update(
-            doc! {"id": &self.id},
-            doc! {"$set": bson::to_document(&self).unwrap()},
-            None
-        ).await
+        match mongo::get_collection("conversations")
+            .await
+            .find_one_and_update(doc! {"id": &self.id}, doc! {"$set": bson::to_document(&self).unwrap()}, None)
+            .await
         {
             Ok(_) => return StatusCode::OK,
             Err(_) => return StatusCode::INTERNAL_SERVER_ERROR
         }
-    }      
+    }
 }
-

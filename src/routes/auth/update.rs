@@ -1,5 +1,6 @@
 use super::generics::structs::{Account, ClientAccount};
 use super::mongo;
+use super::message;
 use argon2::Argon2;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -88,6 +89,8 @@ pub async fn update(payload: String) -> impl IntoResponse
             {
                 return (StatusCode::NOT_FOUND, "".to_string());
             }
+            // # ADD FRIEND
+
             // replace the target user in account.friends with the same user, removing the "T_" because it was only a tag to specify which friend was the target of the action.
             server_account.friends.push(target.clone());
             server_account.friends = account
@@ -100,7 +103,7 @@ pub async fn update(payload: String) -> impl IntoResponse
             {
                 Ok(data) =>
                 {
-                    let returndata = ClientAccount 
+                    let mut returndata = ClientAccount 
                     {
                         username: data.username,
                         password: "".to_string(), // we don't really need to return this. client will be forced to relogin after password change anyway
@@ -113,10 +116,21 @@ pub async fn update(payload: String) -> impl IntoResponse
                     {
                         Some(mut target_account) =>
                         {
-                            target_account.friends.push(server_account.username);
+                            target_account.friends.push(server_account.username.clone());
                             match Account::update_account(&target_account).await
                             {
-                                Ok(_) => return (StatusCode::OK, serde_json::to_string(&returndata).unwrap()),
+                                Ok(_) => 
+                                {
+                                    match message::make::create_conversation(&[server_account.username, target].to_vec()).await
+                                    {
+                                        Some(convo) => 
+                                        {
+                                            returndata.conversations.push(convo);
+                                            return (StatusCode::OK, serde_json::to_string(&returndata).unwrap());
+                                        }
+                                        None => return (StatusCode::INTERNAL_SERVER_ERROR, "".to_string()),
+                                    }
+                                },
                                 Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "".to_string())
                             }
                         }

@@ -1,3 +1,5 @@
+use rand::RngCore;
+
 use super::structs::Account;
 use crate::db::mongo;
 
@@ -15,6 +17,14 @@ use crate::db::mongo;
 pub async fn verify(username: &String, session_id: &String) -> bool
 {
     mongo::ping().await;
-    let account: Account = Account::get_account(&username).await.unwrap();
+    println!("username: {}", username);
+    let account: Account = Account::get_account(&username).await.expect("Failed to get account");
     &account.session_id == session_id
+}
+
+pub fn rand_hex() -> String
+{
+    let mut bytes = [0; 4];
+    rand::thread_rng().fill_bytes(&mut bytes);
+    hex::encode(bytes)
 }

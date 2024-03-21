@@ -38,7 +38,20 @@ pub async fn login_user(payload: String) -> impl IntoResponse
             server_account.session_id = session_id;
             match Account::update_account(&server_account).await
             {
-                Ok(data) => return (StatusCode::OK, data.session_id + "|PRIVATEKEY:|" + &data.priv_key_enc.iter().map(|&x| x.to_string()).collect::<Vec<String>>().join(",")),
+                Ok(data) =>
+                {
+                    return (
+                        StatusCode::OK,
+                        data.session_id
+                            + "|PRIVATEKEY:|"
+                            + &data
+                                .priv_key_enc
+                                .iter()
+                                .map(|&x| x.to_string())
+                                .collect::<Vec<String>>()
+                                .join(",")
+                    )
+                }
                 // Returned if account failed to update
                 Err(_) => return (StatusCode::BAD_REQUEST, "".to_string())
             }
