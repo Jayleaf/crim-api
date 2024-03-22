@@ -31,10 +31,9 @@ pub async fn create_user(payload: String) -> impl IntoResponse
     // create account
 
     // first, create pw hash
-    let mut salt: [u8; 32] = [0u8; 32];
-    getrandom(&mut salt).expect("Failed to generate a random salt");
+    let salt = utils::rand_hex(32);
     let config = Config::default();
-    let hash: String = argon2::hash_encoded(account.password.as_bytes(), &salt, &config).unwrap();
+    let hash: String = argon2::hash_encoded(account.password.as_bytes(), &salt.as_bytes(), &config).unwrap();
 
     let pkey: PKey<Private> = PKey::from_rsa(Rsa::generate(2048).unwrap()).unwrap();
     let cipher: Cipher = Cipher::aes_256_cbc();
