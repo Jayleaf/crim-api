@@ -22,7 +22,6 @@ pub struct Account
 {
     pub username: String,
     pub hash: String,
-    pub salt: Vec<u8>,
     pub public_key: Vec<u8>,
     pub priv_key_enc: Vec<u8>,
     pub friends: Vec<String>,
@@ -37,12 +36,6 @@ impl Account
         Account {
             username: doc.get_str("username").unwrap().to_string(),
             hash: doc.get_str("hash").unwrap().to_string(),
-            salt: doc
-                .get_array("salt")
-                .unwrap()
-                .iter()
-                .map(|x| x.as_i32().unwrap() as u8)
-                .collect::<Vec<u8>>(),
             public_key: doc
                 .get_array("public_key")
                 .unwrap()

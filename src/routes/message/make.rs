@@ -16,7 +16,7 @@ pub async fn create_conversation(users: &Vec<String>) -> Option<Conversation>
     } // getrandom() can sometimes give a 0, which will fuck everything up.
 
     let conversation = Conversation {
-        id: utils::rand_hex(),
+        id: utils::rand_hex(4),
         users: users.clone(),
         keys: {
             // this could be prettier with a stream

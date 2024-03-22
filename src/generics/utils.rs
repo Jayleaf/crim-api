@@ -1,5 +1,4 @@
 use rand::RngCore;
-
 use super::structs::Account;
 
 /// Verify a user's session
@@ -22,9 +21,9 @@ pub async fn verify(username: &String, session_id: &String) -> Result<bool, Stri
     .ok_or_else(|| String::from("Tried to validate with a non-existent account."))
 }
 
-pub fn rand_hex() -> String
+pub fn rand_hex(len: usize) -> String
 {
-    let mut bytes = [0; 4];
+    let mut bytes: Vec<u8> = vec![0; len];
     rand::thread_rng().fill_bytes(&mut bytes);
     hex::encode(bytes)
 }

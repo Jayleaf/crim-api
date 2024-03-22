@@ -1,8 +1,7 @@
 use super::generics::{utils, structs::{Account, ClientAccount}};
 use crate::db::mongo;
-use argon2::Argon2;
+use argon2::{self, Config};
 use axum::{http::StatusCode, response::IntoResponse};
-use base64::{engine::general_purpose, Engine as _};
 use getrandom::getrandom;
 use openssl::{pkey::{PKey, Private}, rsa::Rsa, symm::Cipher};
 
@@ -34,12 +33,8 @@ pub async fn create_user(payload: String) -> impl IntoResponse
     // first, create pw hash
     let mut salt: [u8; 32] = [0u8; 32];
     getrandom(&mut salt).expect("Failed to generate a random salt");
-    let mut output: [u8; 256] = [0u8; 256];
-    Argon2::default()
-        .hash_password_into(&account.password.as_bytes(), &salt, &mut output)
-        .expect("failed to hash password");
-    let base64_encoded = general_purpose::STANDARD.encode(output);
-    // then, gen public and private keys
+    let config = Config::default();
+    let hash: String = argon2::hash_encoded(account.password.as_bytes(), &salt, &config).unwrap();
 
     let pkey: PKey<Private> = PKey::from_rsa(Rsa::generate(2048).unwrap()).unwrap();
     let cipher: Cipher = Cipher::aes_256_cbc();
@@ -48,18 +43,15 @@ pub async fn create_user(payload: String) -> impl IntoResponse
         .private_key_to_pem_pkcs8_passphrase(cipher, &account.password.as_bytes())
         .unwrap();
 
-    // build account value
     let account: Account = Account {
         username: account.username,
-        hash: base64_encoded,
-        salt: salt.to_vec(),
+        hash,
         public_key,
-
         priv_key_enc: private_key,
         friends: Vec::new(),
         session_id: "".to_string()
     };
-    // write account value to database
+    
     match Account::create_account(&account).await
     {
         Ok(_) => return (StatusCode::OK, "".to_string()),

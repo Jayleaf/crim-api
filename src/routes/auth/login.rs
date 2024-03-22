@@ -1,9 +1,7 @@
 use super::generics::{utils, structs::{Account, ClientAccount}};
-use argon2::Argon2;
+use argon2;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use base64::{engine::general_purpose, Engine as _};
-use getrandom::getrandom;
 /// "Logs" a user in. Generates a session ID and spits it back if the login was successful.
 ///
 /// ## Arguments
@@ -26,18 +24,10 @@ pub async fn login_user(payload: String) -> impl IntoResponse
         Ok(None) => return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid Username or Password."))
     };
 
-    let mut output: [u8; 256] = [0u8; 256];
-    if let Err(_) = Argon2::default().hash_password_into(&client_account.password.clone().into_bytes(), &server_account.salt, &mut output)
-    { return (StatusCode::INTERNAL_SERVER_ERROR, utils::gen_err("Error with password hashing.")) }
+    let Ok(true) = argon2::verify_encoded(&server_account.hash, client_account.password.as_bytes()) // doesn't check for an Argon2 error
+    else { return (StatusCode::UNAUTHORIZED, utils::gen_err("Invalid Username or Password.")) };
 
-    let base64_encoded = general_purpose::STANDARD.encode(output);
-    if base64_encoded != server_account.hash { return (StatusCode::UNAUTHORIZED, utils::gen_err("Invalid Username or Password.")) }
-
-    let mut session_id: [u8; 32] = [0u8; 32];
-    if let Err(_) = getrandom(&mut session_id)
-    { return (StatusCode::INTERNAL_SERVER_ERROR, utils::gen_err("Error generating random session ID."))}
-    let session_id = general_purpose::STANDARD.encode(session_id);
-    server_account.session_id = session_id;
+    server_account.session_id = utils::rand_hex(32);
 
     if let Err(e) = Account::update_account(&server_account).await 
     { return (StatusCode::INTERNAL_SERVER_ERROR, e) }
