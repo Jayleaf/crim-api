@@ -1,13 +1,7 @@
-#[macro_use]
-extern crate took_macro;
-
 mod db;
 mod generics;
 mod routes;
-
-use axum::{
-    routing::{get, post}, Router
-};
+use axum::{routing::post, Router};
 use tokio;
 
 #[tokio::main]
@@ -16,15 +10,21 @@ async fn main()
     // build routes
     // TODO: rate limiting
 
-    db::mongo::ping().await;
+    if let Err(e) = db::mongo::ping().await
+    {
+        eprintln!("Failed to connect to MongoDB: {}", e);
+        return;
+    }
+    else { println!("Connected to MongoDB.");}
+
     let app = Router::new()
         .route("/api/auth/create", post(routes::auth::create::create_user))
         .route("/api/auth/delete", post(routes::auth::delete::delete_user))
         .route("/api/auth/login", post(routes::auth::login::login_user))
         .route("/api/auth/get", post(routes::auth::get::get)) // TODO: this could be a get instead of a post
-        .route("/api/auth/update", post(routes::auth::update::update));
-        //.route("/api/message/recieve", post(routes::message::recieve::recieve))
-        //.route("/api/message/send", post(routes::message::send::send));
+        .route("/api/auth/update", post(routes::auth::update::update))
+        .route("/api/message/recieve", post(routes::message::recieve::recieve))
+        .route("/api/message/send", post(routes::message::send::send));
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")

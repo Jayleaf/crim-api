@@ -3,9 +3,6 @@
 //        File for commonly-used structs        //
 //                                              //
 //----------------------------------------------//
-
-use std::default;
-
 use super::{mongo, utils};
 use mongodb::bson::{self, doc, Document};
 use openssl::rsa::{Padding, Rsa};
@@ -17,7 +14,11 @@ use serde::{Deserialize, Serialize};
 //                                              //
 //----------------------------------------------//
 
+
+//------------------------------//
+
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
+
 pub struct Account
 {
     pub username: String,
@@ -157,6 +158,8 @@ impl Account
     }
 }
 
+//------------------------------//
+
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 /// A client-side version of the [`Account`] struct. Contains only necessary client-side info, and the SID for authentication.
 ///
@@ -177,9 +180,42 @@ pub struct ClientAccount
     pub session_id: String
 }
 
+//------------------------------//
+
+#[derive(Deserialize, Serialize, Debug, Default, Clone, Eq, PartialEq)]
+/// An enum representing the different actions that can be taken when updating a user's data.
+pub enum UpdateAction
+{
+    #[default]
+    None,
+    ChangeUsername,
+    ChangePassword,
+    AddFriend,
+    RemoveFriend,
+}
+
+/// A unique user data struct, made specifically for updating one specific field of userdata.
+/// 
+/// ## Fields
+/// * [`field`][`std::string::String`] - The field to be updated.
+/// * [`data`][`std::string::String`] - The data to replace the old data of specified field with
+/// * [`action`][`UpdateAction`] - The action to be taken with the data.
+/// * [`session_id`][`std::string::String`] - The session ID of the user making the request.
+/// 
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct UpdateUser
+{
+    pub field: String,
+    pub data: String,
+    pub action: UpdateAction,
+    pub session_id: String
+}
+
+//------------------------------//
+
 //----------------------------------------------//
 //                                              //
-//                   Messages                   //
+//                  Messaging                   //
 //                                              //
 //----------------------------------------------//
 
@@ -248,6 +284,7 @@ impl UserKey
     }
 }
 
+//------------------------------//
 
 /// Raw, unencrypted message value.
 /// 
@@ -262,6 +299,7 @@ pub struct RawMessage
     pub time: String
 }
 
+//------------------------------//
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 /// An encrypted message value.
@@ -302,6 +340,8 @@ impl EncryptedMessage
         }
     }
 }
+
+//------------------------------//
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 
@@ -444,24 +484,4 @@ impl Conversation
             .await
         { return Ok(()) } else { return Err(utils::gen_err("An error occurred pushing a new message to a conversation.")); }
     }
-}
-
-
-#[derive(Deserialize, Serialize, Debug, Default, Clone, Eq, PartialEq)]
-pub enum UpdateAction
-{
-    #[default]
-    None,
-    ChangeUsername,
-    ChangePassword,
-    AddFriend,
-    RemoveFriend,
-}
-#[derive(Deserialize, Serialize, Debug, Clone, Default)]
-pub struct UpdateUser
-{
-    pub field: String,
-    pub data: String,
-    pub action: UpdateAction,
-    pub session_id: String
 }

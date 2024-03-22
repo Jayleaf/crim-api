@@ -1,3 +1,5 @@
+use crate::routes::message::make;
+
 use super::generics::{utils, structs::{Account, ClientAccount, UpdateUser, UpdateAction}};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -40,7 +42,12 @@ pub async fn update(payload: String) -> impl IntoResponse
             };
             server_account.friends.push(friend.username.clone());
             friend.friends.push(server_account.username.clone());
-            if let Err(e) = Account::update_account(&friend).await { return (StatusCode::INTERNAL_SERVER_ERROR, e) }
+            if let Err(e) = Account::update_account(&friend).await 
+            { return (StatusCode::INTERNAL_SERVER_ERROR, e) };
+
+            if let Err(e) = make::create_conversation(vec![&server_account.username, &friend.username]).await 
+            { return (StatusCode::INTERNAL_SERVER_ERROR, e) };
+            
         },
 
         UpdateAction::RemoveFriend =>

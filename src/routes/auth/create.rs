@@ -2,7 +2,6 @@ use super::generics::{utils, structs::{Account, ClientAccount}};
 use crate::db::mongo;
 use argon2::{self, Config};
 use axum::{http::StatusCode, response::IntoResponse};
-use getrandom::getrandom;
 use openssl::{pkey::{PKey, Private}, rsa::Rsa, symm::Cipher};
 
 /// Creates a user entry in the database. If it was successful, returns 200 OK. If not, returns 400 Bad Request.

@@ -21,7 +21,7 @@ async fn init_mongo() -> mongodb::error::Result<Client>
     Ok(client)
 }
 
-pub async fn ping() -> Result<(), ()> { init_mongo().await.map(|_| ()).map_err(|_| ()) }
+pub async fn ping() -> Result<(), mongodb::error::Error> { init_mongo().await.map(|_| ()).map_err(|e| e) }
 pub async fn get_database(name: &str) -> Database { init_mongo().await.unwrap().database(name) }
 pub async fn get_collection(name: &str) -> Collection<Document>
 {
