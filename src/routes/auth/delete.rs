@@ -1,8 +1,7 @@
 use super::generics::{
     structs::{Account, ClientAccount}, utils
 };
-use super::mongo;
-use axum::http::StatusCode;
+use axum::{http::StatusCode, response::IntoResponse};
 
 /// Deletes a user entry in the database.
 ///
@@ -18,25 +17,20 @@ use axum::http::StatusCode;
 ///     * 500 INTERNAL_SERVER_ERROR if an error occurred deleting the account
 ///     * 401 UNAUTHORIZED if the session is invalid.
 ///
-pub async fn delete_user(payload: String) -> StatusCode
+pub async fn delete_user(payload: String) -> impl IntoResponse
 {
-    // parse the payload into a ClientAccount
-    let account: ClientAccount = serde_json::from_str(&payload).unwrap();
-    mongo::ping().await;
 
-    // verify session
-    if utils::verify(&account.username, &account.session_id).await
+    let Ok(account) = serde_json::from_str::<ClientAccount>(&payload) 
+    else { return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid Payload."))};
+
+    match utils::verify(&account.username, &account.session_id).await
     {
-        // delete the account
-        match Account::delete_account(&account.username).await
-        {
-            Ok(_) => return StatusCode::OK,
-            Err(_) => return StatusCode::INTERNAL_SERVER_ERROR
-        }
+        Ok(true) => (),
+        Ok(false) => return (StatusCode::UNAUTHORIZED, utils::gen_err("Invalid session ID.")),
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e)
     }
-    else
-    {
-        // Returned if the session id is invalid
-        return StatusCode::UNAUTHORIZED;
-    }
+    
+    if let Err(e) = Account::delete_account(&account.username).await { return (StatusCode::INTERNAL_SERVER_ERROR, e) }
+    else { return (StatusCode::OK, String::new()); }
+
 }

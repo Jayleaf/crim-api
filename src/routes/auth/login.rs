@@ -1,5 +1,4 @@
-use super::generics::structs::{Account, ClientAccount};
-use super::mongo;
+use super::generics::{utils, structs::{Account, ClientAccount}};
 use argon2::Argon2;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -17,54 +16,42 @@ use getrandom::getrandom;
 /// * [`(StatusCode, String)`][axum::response::Response] - A tuple containing the [`StatusCode`] of the request and a [`String`] containing the newly minted session ID and the encrypted private key, separated by the signifier "|PRIVATEKEY:|"
 pub async fn login_user(payload: String) -> impl IntoResponse
 {
-    let account: ClientAccount = serde_json::from_str(&payload).unwrap();
-    mongo::ping().await;
-    if let Some(server_account) = Account::get_account(&account.username).await
+    let Ok(client_account) = serde_json::from_str::<ClientAccount>(&payload) 
+    else { return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid Payload."))};
+    
+    let mut server_account: Account = match Account::get_account(&client_account.username).await
     {
-        // check if password is correct
-        let mut output: [u8; 256] = [0u8; 256];
-        Argon2::default()
-            .hash_password_into(&account.password.clone().into_bytes(), &server_account.salt, &mut output)
-            .expect("failed to hash password");
-        let base64_encoded = general_purpose::STANDARD.encode(output);
-        if base64_encoded == server_account.hash
-        {
-            // generate a new session id
-            let mut session_id: [u8; 32] = [0u8; 32];
-            getrandom(&mut session_id).expect("Failed to generate a random SID");
-            let session_id = general_purpose::STANDARD.encode(session_id);
-            // update the account with the new session id
-            let mut server_account = server_account;
-            server_account.session_id = session_id;
-            match Account::update_account(&server_account).await
-            {
-                Ok(data) =>
-                {
-                    return (
-                        StatusCode::OK,
-                        data.session_id
-                            + "|PRIVATEKEY:|"
-                            + &data
-                                .priv_key_enc
-                                .iter()
-                                .map(|&x| x.to_string())
-                                .collect::<Vec<String>>()
-                                .join(",")
-                    )
-                }
-                // Returned if account failed to update
-                Err(_) => return (StatusCode::BAD_REQUEST, "".to_string())
-            }
-        }
-        else
-        {
-            // Returned if the password is invalid
-            return (StatusCode::UNAUTHORIZED, "".to_string());
-        }
-    }
-    else
-    {
-        // Returned if the account doesn't exist
-        return (StatusCode::UNAUTHORIZED, "".to_string());
+        Ok(Some(account)) => account,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e),
+        Ok(None) => return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid Username or Password."))
+    };
+
+    let mut output: [u8; 256] = [0u8; 256];
+    if let Err(_) = Argon2::default().hash_password_into(&client_account.password.clone().into_bytes(), &server_account.salt, &mut output)
+    { return (StatusCode::INTERNAL_SERVER_ERROR, utils::gen_err("Error with password hashing.")) }
+
+    let base64_encoded = general_purpose::STANDARD.encode(output);
+    if base64_encoded != server_account.hash { return (StatusCode::UNAUTHORIZED, utils::gen_err("Invalid Username or Password.")) }
+
+    let mut session_id: [u8; 32] = [0u8; 32];
+    if let Err(_) = getrandom(&mut session_id)
+    { return (StatusCode::INTERNAL_SERVER_ERROR, utils::gen_err("Error generating random session ID."))}
+    let session_id = general_purpose::STANDARD.encode(session_id);
+    server_account.session_id = session_id;
+
+    if let Err(e) = Account::update_account(&server_account).await 
+    { return (StatusCode::INTERNAL_SERVER_ERROR, e) }
+    else 
+    { 
+        return (
+        StatusCode::OK, 
+        server_account.session_id + 
+        "|PRIVATEKEY:|" 
+        + &server_account.priv_key_enc
+            .iter()
+            .map(|&x| x.to_string()).
+            collect::<Vec<String>>()
+            .join(",")
+        ) 
     }
 }

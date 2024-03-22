@@ -1,4 +1,4 @@
-use super::generics::structs::{Account, ClientAccount};
+use super::generics::{utils, structs::{Account, ClientAccount}};
 use crate::db::mongo;
 use argon2::Argon2;
 use axum::{http::StatusCode, response::IntoResponse};
@@ -19,15 +19,15 @@ use openssl::{pkey::{PKey, Private}, rsa::Rsa, symm::Cipher};
 pub async fn create_user(payload: String) -> impl IntoResponse
 {
     // parse the string to an account value
-    let account: ClientAccount = serde_json::from_str(&payload).unwrap();
+    let Ok(account) = serde_json::from_str::<ClientAccount>(&payload) else { return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid Payload."))};
     if let Err(_) = mongo::ping().await
     {
         return (StatusCode::INTERNAL_SERVER_ERROR, "Error occurred connecting to database.".to_string());
     }
 
-    if let None = Account::get_account(&account.username).await
+    if let Err(e) = Account::get_account(&account.username).await
     {
-        return (StatusCode::BAD_REQUEST, "Duplicate username".to_string());
+        return (StatusCode::BAD_REQUEST, e);
     }
     // create account
 
@@ -53,7 +53,8 @@ pub async fn create_user(payload: String) -> impl IntoResponse
         username: account.username,
         hash: base64_encoded,
         salt: salt.to_vec(),
-        public_key: public_key,
+        public_key,
+
         priv_key_enc: private_key,
         friends: Vec::new(),
         session_id: "".to_string()
@@ -62,6 +63,6 @@ pub async fn create_user(payload: String) -> impl IntoResponse
     match Account::create_account(&account).await
     {
         Ok(_) => return (StatusCode::OK, "".to_string()),
-        Err(_) => return (StatusCode::BAD_REQUEST, "Error occurred saving account to database.".to_string())
+        Err(_) => return (StatusCode::BAD_REQUEST, utils::gen_err("Error creating account."))
     }
 }

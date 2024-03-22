@@ -4,6 +4,8 @@
 //                                              //
 //----------------------------------------------//
 
+use std::default;
+
 use super::{mongo, utils};
 use mongodb::bson::{self, doc, Document};
 use openssl::rsa::{Padding, Rsa};
@@ -449,4 +451,24 @@ impl Conversation
             .await
         { return Ok(()) } else { return Err(utils::gen_err("An error occurred pushing a new message to a conversation.")); }
     }
+}
+
+
+#[derive(Deserialize, Serialize, Debug, Default, Clone, Eq, PartialEq)]
+pub enum UpdateAction
+{
+    #[default]
+    None,
+    ChangeUsername,
+    ChangePassword,
+    AddFriend,
+    RemoveFriend,
+}
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct UpdateUser
+{
+    pub field: String,
+    pub data: String,
+    pub action: UpdateAction,
+    pub session_id: String
 }

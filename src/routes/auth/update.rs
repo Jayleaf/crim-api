@@ -1,25 +1,11 @@
-use super::generics::structs::{Account, ClientAccount};
-use super::mongo;
-use super::message;
-use argon2::Argon2;
+use super::generics::{utils, structs::{Account, ClientAccount, UpdateUser, UpdateAction}};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use base64::{engine::general_purpose, Engine as _};
-use getrandom::getrandom;
 
 /// Generic function for updating a user's data in the database.
-/// 
-/// The way this function works is you pass in a ClientAccount, and the function will check for any fields 
-/// that *DIFFER* from the account stored in the database.
-/// If you do not want to update a given field, simply leave the corresponding ClientAccount field blank (String::new()), and it will not be altered.
 ///
 /// ## Arguments
-/// * [`payload`][`std::string::String`] - A JSON string containing a ```ClientAccount``` struct.
-///     * Utilized Fields
-///         * `username`
-///         * `password` (IF updating password)
-///         * `friends` (IF updating friends)
-///         * `session_id`
+/// * [`payload`][`UpdateUser`] - A JSON string containing a serialized [`UpdateUser`] value.
 ///
 /// ## Returns the
 /// * [`(StatusCode, String)`][axum::response::Response] - A tuple containing the status code of the request and a serialized ClientAccount value.
@@ -29,129 +15,71 @@ use getrandom::getrandom;
 ///
 pub async fn update(payload: String) -> impl IntoResponse
 {
-    let account: ClientAccount = serde_json::from_str(&payload).unwrap();
-    mongo::ping().await;
-    // validate SID
-    if let Some(mut server_account) = Account::get_account_by_sid(&account.session_id).await
+    let Ok(update_val) = serde_json::from_str::<UpdateUser>(&payload) 
+    else { return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid Payload."))};
+
+    let mut server_account = match Account::get_account_by_sid(&update_val.session_id).await
     {
-        if &account.username != &server_account.username && !&account.username.is_empty()
-        {
-            // opening for username change
-        }
-        let mut output = [0u8; 32];
+        Ok(Some(account)) => account,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e),
+        Ok(None) => return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid SID."))
+    };
 
-        // turn user-provided password into a hash
-        Argon2::default()
-            .hash_password_into(&account.password.clone().into_bytes(), &server_account.salt, &mut output)
-            .expect("failed to hash password");
-        let base64_encoded = general_purpose::STANDARD.encode(output);
-        if base64_encoded != server_account.hash && !account.password.is_empty()
-        {
-            // hash the new provided password
-            // a new salt will be generated
-            let mut salt = [0u8; 16];
-            getrandom(&mut salt).expect("failed to generate random salt");
-            let mut output = [0u8; 32];
-            Argon2::default()
-                .hash_password_into(&account.password.clone().into_bytes(), &salt, &mut output)
-                .expect("failed to hash password");
-            let base64_encoded = general_purpose::STANDARD.encode(output);
-            server_account.hash = base64_encoded;
-            server_account.salt = salt.to_vec();
+    match update_val.action
+    {
+        UpdateAction::None => return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid action.")),
 
-            // also reset the session ID
-            let mut session_id = [0u8; 32];
-            getrandom(&mut session_id).expect("failed to generate random session ID");
-            let session_id = general_purpose::STANDARD.encode(session_id);
-            server_account.session_id = session_id;
-        }
-        if account.friends != server_account.friends && !account.friends.is_empty()
+        UpdateAction::AddFriend =>
         {
-            let target: String = 
+            let target = &update_val.data;
+            let mut friend = match Account::get_account(target).await
             {
-                let mut target: String = String::new();
-                for friend in &account.friends
-                {
-                    if friend.starts_with("T_")
-                    {
-                        target = friend
-                            .to_string()
-                            .trim_start_matches("T_")
-                            .to_string();
-                    }
-                }
-                target
+                Ok(Some(account)) => account,
+                Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e),
+                Ok(None) => return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid friend username."))
             };
+            server_account.friends.push(friend.username.clone());
+            friend.friends.push(server_account.username.clone());
+            if let Err(e) = Account::update_account(&friend).await { return (StatusCode::INTERNAL_SERVER_ERROR, e) }
+        },
 
-            //check if target user exists in db
-
-            if Account::get_account(&target).await.is_none()
+        UpdateAction::RemoveFriend =>
+        {
+            let target = &update_val.data;
+            let mut friend = match Account::get_account(target).await
             {
-                return (StatusCode::NOT_FOUND, "".to_string());
-            }
-            // # ADD FRIEND
+                Ok(Some(account)) => account,
+                Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e),
+                Ok(None) => return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid friend username."))
+            };
+            server_account.friends.retain(|x| x != &friend.username);
+            friend.friends.retain(|x| x != &server_account.username);
+            if let Err(e) = Account::update_account(&friend).await { return (StatusCode::INTERNAL_SERVER_ERROR, e) }
+        },
 
-            // replace the target user in account.friends with the same user, removing the "T_" because it was only a tag to specify which friend was the target of the action.
-            server_account.friends.push(target.clone());
-            server_account.friends = account
-                .friends
-                .into_iter()
-                .map(|x| x.trim_start_matches("T_").to_string())
-                .collect();
-            // update account in db
-            match Account::update_account(&server_account).await
-            {
-                Ok(data) =>
-                {
-                    let mut returndata = ClientAccount 
-                    {
-                        username: data.username,
-                        password: "".to_string(), // we don't really need to return this. client will be forced to relogin after password change anyway
-                        friends: data.friends,
-                        conversations: account.conversations,
-                        session_id: data.session_id
-                    };
-                    // add you to the other person's friends list
-                    match Account::get_account(&target).await
-                    {
-                        Some(mut target_account) =>
-                        {
-                            target_account.friends.push(server_account.username.clone());
-                            match Account::update_account(&target_account).await
-                            {
-                                Ok(_) => 
-                                {
-                                    match message::make::create_conversation(&[server_account.username, target].to_vec()).await
-                                    {
-                                        Some(convo) => 
-                                        {
-                                            returndata.conversations.push(convo);
-                                            return (StatusCode::OK, serde_json::to_string(&returndata).unwrap());
-                                        }
-                                        None => return (StatusCode::INTERNAL_SERVER_ERROR, "".to_string()),
-                                    }
-                                },
-                                Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "".to_string())
-                            }
-                        }
-                        None => return (StatusCode::INTERNAL_SERVER_ERROR, "".to_string())
-                    }
-                }
-                // Returned if account failed to update
-                Err(_) =>
-                {
-                    return (StatusCode::INTERNAL_SERVER_ERROR, "".to_string());
-                }
-            }
-            
+        UpdateAction::ChangePassword =>
+        {
+            return (StatusCode::NOT_IMPLEMENTED, utils::gen_err("Not implemented yet."))
+        },
+
+        UpdateAction::ChangeUsername =>
+        {
+            return (StatusCode::NOT_IMPLEMENTED, utils::gen_err("Not implemented yet."))
         }
     }
-    else
+
+    if let Err(e) = Account::update_account(&server_account).await 
+    { return (StatusCode::INTERNAL_SERVER_ERROR, e) }
+
+    let client_account: ClientAccount = ClientAccount
     {
-        // Returned if the SID can't be found
-        // + StatusCode::UNAUTHORIZED
-        // - StatusCode::BAD_REQUEST
-        return (StatusCode::UNAUTHORIZED, "".to_string());
-    }
-    return (StatusCode::UNAUTHORIZED, "".to_string());
+        username: server_account.username,
+        password: if update_val.action == UpdateAction::ChangePassword { update_val.data } else { String::new() },
+        friends: server_account.friends,
+        conversations: Vec::new(),
+        session_id: update_val.session_id
+    };
+
+    return (StatusCode::OK, serde_json::to_string(&client_account).unwrap()) 
+  
 }
