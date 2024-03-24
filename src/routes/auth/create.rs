@@ -17,7 +17,9 @@ use openssl::{pkey::{PKey, Private}, rsa::Rsa, symm::Cipher};
 pub async fn create_user(payload: String) -> impl IntoResponse
 {
     // parse the string to an account value
-    let Ok(account) = serde_json::from_str::<ClientAccount>(&payload) else { return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid Payload."))};
+    let Ok(account) = serde_json::from_str::<ClientAccount>(&payload) 
+    else { return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid Payload."))};
+    
     if let Err(_) = mongo::ping().await
     {
         return (StatusCode::INTERNAL_SERVER_ERROR, "Error occurred connecting to database.".to_string());

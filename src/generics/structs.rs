@@ -1,3 +1,6 @@
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use tokio::sync::Mutex;
+
 //----------------------------------------------//
 //                                              //
 //        File for commonly-used structs        //
@@ -7,6 +10,7 @@ use super::{mongo, utils};
 use mongodb::bson::{self, doc, Document};
 use openssl::rsa::{Padding, Rsa};
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::Sender;
 
 //----------------------------------------------//
 //                                              //
@@ -205,7 +209,6 @@ pub enum UpdateAction
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct UpdateUser
 {
-    pub field: String,
     pub data: String,
     pub action: UpdateAction,
     pub session_id: String
@@ -484,4 +487,42 @@ impl Conversation
             .await
         { return Ok(()) } else { return Err(utils::gen_err("An error occurred pushing a new message to a conversation.")); }
     }
+}
+
+//----------------------------------------------//
+//                                              //
+//                   Websockets                 //
+//                                              //
+//----------------------------------------------//
+
+#[derive(Debug)]
+pub struct WebsocketClient
+{
+    pub username: String,
+    pub session_id: String,
+    pub socket: Sender<WSPacket>
+}
+
+pub type ClientStore = Arc<Mutex<HashMap<SocketAddr, WebsocketClient>>>;
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub enum WSAction
+{
+    SendMessage(EncryptedMessage),
+    ReceiveMessage(EncryptedMessage),
+    CreateConversation(Vec<String>),
+    DeleteConversation(String),
+    AddFriend(String),
+    RemoveFriend(String),
+    Register(),
+    Disconnect(),
+    Info(String),
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct WSPacket
+{
+    pub sender: String,
+    pub sid: String,
+    pub action: WSAction
 }

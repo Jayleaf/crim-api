@@ -9,7 +9,6 @@ use axum::{http::StatusCode, response::IntoResponse};
 /// ## Return Values:
 /// * [`(StatusCode, String)`][axum::response::Response] - A tuple containing the [`StatusCode`] of the request and a serialized [`Conversation`] [`vector.`][`std::vec::Vec`]
 ///
-///
 pub async fn recieve(payload: String) -> impl IntoResponse
 {
     let Ok(client_account) = serde_json::from_str::<ClientAccount>(&payload) 

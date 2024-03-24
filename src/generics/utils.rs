@@ -1,5 +1,7 @@
+
 use rand::RngCore;
-use super::structs::Account;
+use super::structs::{Account, WSPacket, WSAction};
+
 
 /// Verify a user's session
 ///
@@ -31,4 +33,9 @@ pub fn rand_hex(len: usize) -> String
 pub fn gen_err(msg: &str) -> String
 {
     return format!("{} ({})", msg, std::env::current_dir().unwrap().to_str().unwrap().to_string());
+}
+
+pub fn info_packet(msg: &str) -> WSPacket
+{
+    WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::Info(msg.to_string())}
 }

@@ -1,6 +1,6 @@
 use crate::routes::message::make;
 
-use super::generics::{utils, structs::{Account, ClientAccount, UpdateUser, UpdateAction}};
+use super::generics::{utils, structs::{Account, ClientAccount, UpdateUser, UpdateAction, Conversation}};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 
@@ -27,6 +27,12 @@ pub async fn update(payload: String) -> impl IntoResponse
         Ok(None) => return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid SID."))
     };
 
+    let mut convos: Vec<Conversation> = match Conversation::get_all(&server_account.username).await
+    {
+        Ok(convos) => convos,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e)
+    };
+
     match update_val.action
     {
         UpdateAction::None => return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid action.")),
@@ -38,15 +44,18 @@ pub async fn update(payload: String) -> impl IntoResponse
             {
                 Ok(Some(account)) => account,
                 Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e),
-                Ok(None) => return (StatusCode::BAD_REQUEST, utils::gen_err("Invalid friend username."))
+                Ok(None) => return (StatusCode::NOT_FOUND, utils::gen_err("Invalid friend username."))
             };
             server_account.friends.push(friend.username.clone());
             friend.friends.push(server_account.username.clone());
             if let Err(e) = Account::update_account(&friend).await 
             { return (StatusCode::INTERNAL_SERVER_ERROR, e) };
 
-            if let Err(e) = make::create_conversation(vec![&server_account.username, &friend.username]).await 
-            { return (StatusCode::INTERNAL_SERVER_ERROR, e) };
+            match make::create_conversation(vec![&server_account.username, &friend.username]).await
+            {
+                Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e),
+                Ok(c) => convos.push(c)
+            }
             
         },
 
@@ -83,7 +92,7 @@ pub async fn update(payload: String) -> impl IntoResponse
         username: server_account.username,
         password: if update_val.action == UpdateAction::ChangePassword { update_val.data } else { String::new() },
         friends: server_account.friends,
-        conversations: Vec::new(),
+        conversations: convos,
         session_id: update_val.session_id
     };
 
