@@ -1,5 +1,5 @@
 use crate::generics::{structs::Conversation, utils};
-use axum::http::StatusCode;
+use axum::{extract::Path, http::StatusCode};
 use axum::response::IntoResponse;
 use super::generics::structs::{Account, ClientAccount};
 
@@ -12,10 +12,11 @@ use super::generics::structs::{Account, ClientAccount};
 /// ## Returns
 /// * [`(StatusCode, String)`][axum::response::Response] - A tuple containing the [`StatusCode`] of the request and a serialized [`ClientAccount`] value.
 ///
-pub async fn get(payload: String) -> impl IntoResponse
+pub async fn get( Path(sid): Path<String>,) -> impl IntoResponse
 {
 
-    let server_account: Account = match Account::get_account_by_sid(&payload).await
+    println!("{sid}");
+    let server_account: Account = match Account::get_account_by_sid(&sid).await
     {
         Ok(Some(account)) => account,
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e),

@@ -42,8 +42,7 @@ async fn main()
         .route("/api/auth/create", post(routes::auth::create::create_user))
         .route("/api/auth/delete", post(routes::auth::delete::delete_user))
         .route("/api/auth/login", post(routes::auth::login::login_user))
-        .route("/api/auth/get", post(routes::auth::get::get)) // TODO: this could be a get instead of a post
-        .route("/api/message/recieve", post(routes::message::recieve::recieve_bulk))
+        .route("/api/auth/get/:{sid}", get(routes::auth::get::get))
         .route("/api/ws", get(routes::ws::ws::ws_handler))
         .with_state(state)
         .layer(

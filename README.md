@@ -60,24 +60,14 @@ POST api/auth/login
 
 
 --------------
-#### Get all of a user's client-side data `🟡 Currently a POST, soon converting to GET`
+#### Get all of a user's client-side data `🟢 Functional`
 ```http
 GET api/auth/get
 ```
 
 | Parameter | Payload Struct  |      Utilized Fields     |    Returns    |
 | :-------: | :--------------:| :-----------------------:|:-------------:| 
-| `payload` | `ClientAccount` |  `username, session_id`  |`ClientAccount`|
-
---------------
-#### Get all of a user's encrypted conversations `🟡 Soon to be merged with api/auth/get`
-```http
-POST api/auth/recieve
-```
-
-| Parameter | Payload Struct  |      Utilized Fields     |    Returns    |
-| :-------: | :--------------:| :-----------------------:|:-------------:| 
-| `payload` | `ClientAccount` |  `username, session_id`  |`ClientAccount`|
+|   `sid`   |     `String`    |        `session_id`      |`ClientAccount`|
 
 --------------
 #### Establish a websocket connection `🟢 Functional`
