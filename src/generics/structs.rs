@@ -511,6 +511,7 @@ pub enum WSAction
     SendMessage(EncryptedMessage),
     ReceiveMessage(EncryptedMessage),
     CreateConversation(Vec<String>),
+    RecieveConversation(Conversation),
     DeleteConversation(String),
     AddFriend(String),
     RemoveFriend(String),

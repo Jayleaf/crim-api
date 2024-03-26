@@ -1,8 +1,7 @@
-use super::generics::{
+use super::{generics::{
     structs::{ClientStore, WSAction, WSPacket},
     utils,
-};
-use crate::routes::ws::{register_ws, send_ws};
+}, make_convo_ws, send_ws, register_ws};
 use crate::tokio::sync::mpsc::Sender;
 use axum::extract::State;
 use std::net::SocketAddr;
@@ -44,9 +43,7 @@ pub async fn recieve_ws(packet: WSPacket, who: SocketAddr, State(store): State<C
         }
         WSAction::CreateConversation(_) => 
         {
-            tx.send(utils::info_packet("Not implemented."))
-                .await
-                .ok();
+            make_convo_ws::make_convo(packet, who, State(store.clone()), &tx).await;
         }
         WSAction::DeleteConversation(_) => 
         {
@@ -63,6 +60,12 @@ pub async fn recieve_ws(packet: WSPacket, who: SocketAddr, State(store): State<C
         WSAction::ReceiveMessage(_) => 
         {
             tx.send(utils::info_packet("Server does not accept recieve message packets."))
+                .await
+                .ok();
+        }
+        WSAction::RecieveConversation(_) => 
+        {
+            tx.send(utils::info_packet("Server does not accept a recieve conversation packet."))
                 .await
                 .ok();
         }

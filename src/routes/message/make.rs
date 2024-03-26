@@ -6,7 +6,7 @@ use super::{
 use getrandom::getrandom;
 use mongodb::bson::Document;
 
-pub async fn create_conversation(users: Vec<&String>) -> Result<Conversation, String>
+pub async fn create_conversation(users: &Vec<String>) -> Result<Conversation, String>
 {
     let mut raw_conversation_key: [u8; 32] = [0; 32];
     getrandom(&mut raw_conversation_key).expect("Failed to generate random conversation key.");
@@ -17,7 +17,7 @@ pub async fn create_conversation(users: Vec<&String>) -> Result<Conversation, St
 
     let conversation: Conversation = Conversation {
         id: utils::rand_hex(4),
-        users: users.iter().map(|x: &&String| -> String{String::from(*x)}).collect::<Vec<String>>(),
+        users: users.to_owned(),
         keys: 
         {
             let mut k: Vec<UserKey> = Vec::new();
