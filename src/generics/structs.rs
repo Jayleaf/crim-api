@@ -487,6 +487,16 @@ impl Conversation
             .await
         { return Ok(()) } else { return Err(utils::gen_err("An error occurred pushing a new message to a conversation.")); }
     }
+
+    /// Modifies an existing conversation
+    pub async fn modify(new: &Conversation) -> Result<(), String>
+    {
+        if let Ok(_) = mongo::get_collection("conversations")
+            .await
+            .find_one_and_update(doc! {"id": &new.id}, doc! {"$set": Conversation::to_document(&new)}, None)
+            .await
+        { return Ok(()) } else { return Err(utils::gen_err("An error occurred modifying a conversation.")); }
+    }
 }
 
 //----------------------------------------------//
@@ -511,13 +521,17 @@ pub enum WSAction
     SendMessage(EncryptedMessage),
     ReceiveMessage(EncryptedMessage),
     CreateConversation(Vec<String>),
-    RecieveConversation(Conversation),
     DeleteConversation(String),
     AddFriend(String),
     RemoveFriend(String),
     Register(),
     Disconnect(),
     Info(String),
+    RecieveArbitraryInfo(String, u8), // (Serialized Data, Identifying Key)
+    // ARBITRARY INFO KEYS:
+    // 1 - Bulk Conversation Update
+    // 2 - Single Conversation Update
+    // 3 - Ping
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
