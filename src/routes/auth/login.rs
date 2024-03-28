@@ -12,6 +12,7 @@ use axum::response::IntoResponse;
 ///
 /// ## Returns
 /// * [`(StatusCode, String)`][axum::response::Response] - A tuple containing the [`StatusCode`] of the request and a [`String`] containing the newly minted session ID and the encrypted private key, separated by the signifier "|PRIVATEKEY:|"
+/// 
 pub async fn login_user(payload: String) -> impl IntoResponse
 {
     let Ok(client_account) = serde_json::from_str::<ClientAccount>(&payload) 

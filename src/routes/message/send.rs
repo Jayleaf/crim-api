@@ -1,18 +1,13 @@
 use super::generics::{structs::{Conversation, EncryptedMessage}, utils };
 
-/// Uploads a message to a conversation in the database. The encrypted message value is recieved, and uploaded to the database, stripped of any identifying info.
+/// Uploads a message to a conversation in the database.
 ///
 /// ## Arguments:
-/// * [`payload`] - A JSON string containing a serialized EncryptedMessage struct, paired with a conversation ID.
+/// * [`message`][`super::generics::structs::EncryptedMessage`] - The message to be sent.
 ///
 /// ## Returns:
-/// * [`(StatusCode, String)`][axum::response::Response] - The status code of the request call. The string is not useful, except for error identification.
-///     * 200 OK if message sending was successful
-///     * 401 UNAUTHORIZED if the user's session is invalid
-///     * 403 FORBIDDEN if the user is not a part of the provided conversation ID
-///     * 404 NOT FOUND if the provided conversation ID does not match a conversation
-///     * 500 INTERNAL_SERVER_ERROR if an error occurred sending the message
-///
+/// * [`Result<(), String>`] - A result containing an error message, if any.
+/// 
 pub async fn send(message: EncryptedMessage) -> Result<(), String>
 {
 

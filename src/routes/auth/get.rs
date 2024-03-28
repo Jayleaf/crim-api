@@ -4,7 +4,7 @@ use axum::response::IntoResponse;
 use super::generics::structs::{Account, ClientAccount};
 
 
-/// Gets a users data from the database.
+/// Gets a users data (conversations included) from the database.
 ///
 /// ## Arguments
 /// * [`payload`][`std::string::String`] - A JSON string containing a serialized SID.

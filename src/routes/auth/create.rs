@@ -4,7 +4,7 @@ use argon2::{self, Config};
 use axum::{http::StatusCode, response::IntoResponse};
 use openssl::{pkey::{PKey, Private}, rsa::Rsa, symm::Cipher};
 
-/// Creates a user entry in the database. If it was successful, returns 200 OK. If not, returns 400 Bad Request.
+/// Creates a user entry in the database.
 ///
 /// ## Arguments
 /// * [`payload`][`std::string::String`] - A JSON string containing a serialized ClientAccount of the account to create.

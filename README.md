@@ -15,8 +15,8 @@ Originally, CRIM was entirely terminal-based, had no dedicated API, and was rath
 - [x]   Add/Remove Friends
 - [x]   [End-to-End Message Encryption]()
 - [x]   ID-Based Conversations between users
-- [ ]   Group Chats `🔴 Top Priority`
-- [ ]   Change Username/Password `🔴 Top Priority`
+- [x]   Group Chats `🚧 Completed, but not implemented front-end`
+- [x]   Change Username/Password `🚧 Completed, but not implemented front-end`
 - [ ]   Preferences `🟡 Medium Priority`
 - [ ]   Pinned Messages `🟡 Medium Priority`
 - [ ]   Compatibility with other DBs `🟢 Low Priority`
@@ -38,7 +38,7 @@ POST api/auth/create
 | `payload` |   `ClientAccount`   |`username`, `password`|   N/A   |
 
 -------------
-#### Delete a user from the database. `🔴 Not Functional`
+#### Delete a user from the database. `🟡 Functional, but Unsafe`
 
 ```http
 POST api/auth/delete
@@ -57,6 +57,16 @@ POST api/auth/login
 | Parameter | Payload Struct  |      Utilized Fields     |   Returns  |
 | :-------: | :--------------:| :-----------------------:|:----------:| 
 | `payload` | `ClientAccount` |  `username`, `password`  |`session_id`|
+
+--------------
+#### Change a user's password `🟢 Functional`
+```http
+POST api/auth/change-password
+```
+
+| Parameter | Payload Struct  |              Utilized Fields           |   Returns  |
+| :-------: | :--------------:| :-------------------------------------:|:----------:| 
+| `payload` | `ClientAccount` |  `username`, `password`, `session_id`  |`StatusCode`|
 
 
 --------------
