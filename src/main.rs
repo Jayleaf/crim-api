@@ -43,6 +43,7 @@ async fn main()
         .route("/api/auth/delete", post(routes::auth::delete::delete_user))
         .route("/api/auth/login", post(routes::auth::login::login_user))
         .route("/api/auth/get/:{sid}", get(routes::auth::get::get))
+        .route("/api/auth/change_password", post(routes::auth::change_password::change_password))
         .route("/api/ws", get(routes::ws::ws::ws_handler))
         .with_state(state)
         .layer(

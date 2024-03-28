@@ -32,7 +32,7 @@ pub async fn make_convo(packet: WSPacket, who: SocketAddr, State(store): State<C
     if x.iter().any(|user| !client.friends.contains(user) || user == &client.username)
     { tx.send(utils::info_packet("You are not friends with all the users you are trying to create a conversation with.")).await.ok(); return; }
 
-    let Ok(convo) = make::create_conversation(&x).await
+    let Ok(convo) = make::create_conversation(x.iter().map(|x| x).collect()).await
     else { tx.send(utils::info_packet("Failed to create conversation.")).await.ok(); return; };
 
 

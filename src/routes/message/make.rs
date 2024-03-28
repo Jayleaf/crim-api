@@ -6,7 +6,7 @@ use super::{
 use getrandom::getrandom;
 use mongodb::bson::Document;
 
-pub async fn create_conversation(users: &Vec<String>) -> Result<Conversation, String>
+pub async fn create_conversation(users: Vec<&String>) -> Result<Conversation, String>
 {
     let mut raw_conversation_key: [u8; 32] = [0; 32];
     getrandom(&mut raw_conversation_key).expect("Failed to generate random conversation key.");
@@ -16,8 +16,8 @@ pub async fn create_conversation(users: &Vec<String>) -> Result<Conversation, St
     } // getrandom() can sometimes give a 0, which will fuck everything up.
 
     let conversation: Conversation = Conversation {
-        id: utils::rand_hex(4),
-        users: users.to_owned(),
+        id: utils::rand_hex(4),     
+        users: users.iter().map(|x| x.to_owned().to_owned()).collect(), // double to_owned()? really?
         keys: 
         {
             let mut k: Vec<UserKey> = Vec::new();

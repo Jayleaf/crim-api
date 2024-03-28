@@ -1,7 +1,7 @@
 use super::{generics::{
     structs::{ClientStore, WSAction, WSPacket},
     utils,
-}, make_convo_ws, send_ws, register_ws, remove_friend_ws};
+}, make_convo_ws, send_ws, register_ws, remove_friend_ws, add_friend_ws};
 use crate::tokio::sync::mpsc::Sender;
 use axum::extract::State;
 use std::net::SocketAddr;
@@ -31,9 +31,7 @@ pub async fn recieve_ws(packet: WSPacket, who: SocketAddr, State(store): State<C
         }
         WSAction::AddFriend(_) => 
         {
-            tx.send(utils::info_packet("Not implemented."))
-                .await
-                .ok();
+            add_friend_ws::add_friend(packet, who, State(store.clone()), &tx).await.ok();
         }
         WSAction::RemoveFriend(_) => 
         {

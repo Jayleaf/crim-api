@@ -4,4 +4,5 @@ pub mod register_ws;
 pub mod recieve_ws;
 pub mod make_convo_ws;
 pub mod remove_friend_ws;
+pub mod add_friend_ws;
 use super::generics;
