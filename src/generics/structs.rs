@@ -531,7 +531,7 @@ pub enum WSAction
     // ARBITRARY INFO KEYS:
     // 1 - Bulk Conversation Update
     // 2 - Single Conversation Update
-    // 3 - Ping
+    // 3 - Add Friend Locally and Update Conversation
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
