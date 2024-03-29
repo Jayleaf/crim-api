@@ -44,14 +44,14 @@ pub async fn add_friend(packet: WSPacket, who: SocketAddr, State(store): State<C
     Account::update_account(&friend_acc).await.ok();
 
     // update this client side for all users, beginning with the client
-    let c_packet: WSPacket = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::RecieveArbitraryInfo(serde_json::to_string(&convo).unwrap(), 2) };
+    let c_packet: WSPacket = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::RecieveArbitraryInfo(serde_json::to_string(&convo).unwrap(), 3) };
     if tx.send(c_packet).await.is_err() 
     { error!("Failed to send conversations to client {who}. Did they abruptly disconnect?") }
 
     let Some(friend_client) = store.values().find(|c| &c.username == &x)
     else { return Ok(()) }; // user is not online
 
-    let f_packet = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::RecieveArbitraryInfo(serde_json::to_string(&convo).unwrap(), 2) };
+    let f_packet = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::RecieveArbitraryInfo(serde_json::to_string(&convo).unwrap(), 3) };
     if friend_client.socket.send(f_packet).await.is_err() 
     { error!("Failed to send conversations to client {x}. Did they abruptly disconnect?") }
     
