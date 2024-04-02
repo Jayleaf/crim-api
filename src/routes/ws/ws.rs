@@ -55,6 +55,7 @@ async fn handle_socket(socket: WebSocket, who: SocketAddr, State(store): State<C
             {
                 let Ok(message) = serde_json::from_str::<WSPacket>(msg.to_text().unwrap())
                 else { tx.send( utils::info_packet("Invalid WSPacket.")).await.ok(); continue; };
+                info!("Recieved message from {who}: {:#?}", message);
                 recieve_ws::recieve_ws(message, who, State(store.clone()), tx.clone()).await;
             }
         }

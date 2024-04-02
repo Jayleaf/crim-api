@@ -14,8 +14,7 @@ use super::generics::structs::{Account, ClientAccount};
 ///
 pub async fn get( Path(sid): Path<String>,) -> impl IntoResponse
 {
-
-    println!("{sid}");
+    println!("GET");
     let server_account: Account = match Account::get_account_by_sid(&sid).await
     {
         Ok(Some(account)) => account,
