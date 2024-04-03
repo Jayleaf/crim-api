@@ -16,7 +16,7 @@ pub async fn add_friend(packet: WSPacket, who: SocketAddr, State(store): State<C
     let Some(client) = store.get(&who)
     else { tx.send(utils::info_packet("You are not registered with the server.")).await.ok(); return Ok(()); };
 
-    if client.session_id != packet.sid
+    if client.session_id != packet.sid || client.username != packet.sender
     { tx.send(utils::info_packet("Invalid session ID.")).await.ok(); return Ok(()); }
 
     let WSAction::AddFriend(x) = packet.action
@@ -69,6 +69,26 @@ pub async fn add_friend(packet: WSPacket, who: SocketAddr, State(store): State<C
             info_code = 6;
             
         },
+        "ACCEPTED" => {
+            // ensure authenticity. The only person who can accept requests is the recipient.
+            if client.username != x.receiver
+            { tx.send(utils::info_packet("Invalid session ID.")).await.ok(); return Ok(()); }
+
+            client.friend_requests.retain(|req| req.sender != x.sender && req.receiver != x.receiver);
+            Account::update_account(&client).await.ok();
+
+            friend.friend_requests.retain(|req| req.sender != x.sender && req.receiver != x.receiver);
+            Account::update_account(&friend).await.ok();
+
+            client.friends.push(friend.username.clone());
+            Account::update_account(&client).await.ok();
+
+            friend.friends.push(client.username.clone());
+            Account::update_account(&friend).await.ok();
+
+            tx.send(utils::info_packet(&format!("You are now friends with {}!", &x.receiver))).await.ok();
+            info_code = 7;
+        },
         _ => { tx.send(utils::info_packet("Invalid friend request status.")).await.ok(); return Ok(()); }
     }
 
@@ -76,7 +96,7 @@ pub async fn add_friend(packet: WSPacket, who: SocketAddr, State(store): State<C
         if tx.send(c_packet).await.is_err() 
         { error!("Failed to send conversations to client {who}. Did they abruptly disconnect?") }
 
-        let Some(friend_client) = store.values().find(|c| &c.username == &x.receiver)
+        let Some(friend_client) = store.values().find(|c| &c.username == (if client.username == x.receiver { &x.sender } else { &x.receiver}))
         else { return Ok(()) }; // user is not online
 
         let f_packet = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::ReceiveArbitraryInfo(serde_json::to_string(&x).unwrap(), info_code) };

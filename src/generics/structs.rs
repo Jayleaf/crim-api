@@ -60,16 +60,18 @@ impl Account
                 .iter()
                 .map(|x| x.as_str().unwrap().to_string())
                 .collect(),
-            friend_requests: doc
+            friend_requests: doc 
                 .get_array("friend_requests")
                 .unwrap()
                 .iter()
                 .map(|x| FriendRequest {
                     sender: x.as_document().unwrap().get_str("sender").unwrap().to_string(),
                     receiver: x.as_document().unwrap().get_str("receiver").unwrap().to_string(),
-                    status: x.as_document().unwrap().get_str("status").unwrap().to_string()
+                    status: x.as_document().unwrap().get_str("status").unwrap().to_string(),
                 })
                 .collect(),
+
+
 
             session_id: doc.get_str("session_id").unwrap().to_string()
         }

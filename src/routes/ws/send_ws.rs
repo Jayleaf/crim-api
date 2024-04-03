@@ -24,6 +24,9 @@ pub async fn send_msg(data: EncryptedMessage, who: SocketAddr, State(store): Sta
     let Some(client) = store.get(&who)
     else { tx.send(utils::info_packet("You are not registered with the server.")).await.ok(); return; };
 
+    if client.session_id != data.sender_sid || client.username != data.sender
+    { tx.send(utils::info_packet("Invalid session ID.")).await.ok(); return; }
+
     let account = match Account::get_account_by_sid(&client.session_id).await
     {
         Ok(Some(account)) => account,

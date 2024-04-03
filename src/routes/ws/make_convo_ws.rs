@@ -16,7 +16,7 @@ pub async fn make_convo(packet: WSPacket, who: SocketAddr, State(store): State<C
     let Some(client) = store.get(&who)
     else { tx.send(utils::info_packet("You are not registered with the server.")).await.ok(); return; };
 
-    if client.session_id != packet.sid
+    if client.session_id != packet.sid || client.username != packet.sender
     { tx.send(utils::info_packet("Invalid session ID.")).await.ok(); return; }
 
     let WSAction::CreateConversation(x) = packet.action

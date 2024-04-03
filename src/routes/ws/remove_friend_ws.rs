@@ -17,7 +17,7 @@ pub async fn remove_friend(packet: WSPacket, who: SocketAddr, State(store): Stat
     let Some(client) = store.get(&who)
     else { tx.send(utils::info_packet("You are not registered with the server.")).await.ok(); return Ok(()); };
 
-    if client.session_id != packet.sid
+    if client.session_id != packet.sid || client.username != packet.sender
     { tx.send(utils::info_packet("Invalid session ID.")).await.ok(); return Ok(()); }
 
     let WSAction::RemoveFriend(x) = packet.action
@@ -56,6 +56,7 @@ pub async fn remove_friend(packet: WSPacket, who: SocketAddr, State(store): Stat
         Err(e) => { tx.send(utils::info_packet(&e)).await.ok(); return Ok(()); }
     }
 
+    tx.send(utils::info_packet(&format!("Removed {x} from your friends list."))).await.ok();
 
     // update this client side for all users, beginning with the client
     let c_packet = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::ReceiveArbitraryInfo(x.clone(), 4) };
@@ -69,12 +70,5 @@ pub async fn remove_friend(packet: WSPacket, who: SocketAddr, State(store): Stat
     let f_packet = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::ReceiveArbitraryInfo(client.username, 4) };
     if friend_client.socket.send(f_packet).await.is_err() 
     { error!("Failed to send conversations to client {x}. Did they abruptly disconnect?") }
-    
-    
-
-
-
-    // tell the client that the message was sent (unnecessary in prod)
-    tx.send(utils::info_packet("Conversation created.")).await.ok();
     Ok(())
 }
