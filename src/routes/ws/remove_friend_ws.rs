@@ -58,7 +58,7 @@ pub async fn remove_friend(packet: WSPacket, who: SocketAddr, State(store): Stat
 
 
     // update this client side for all users, beginning with the client
-    let c_packet = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::RecieveArbitraryInfo(x.clone(), 4) };
+    let c_packet = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::ReceiveArbitraryInfo(x.clone(), 4) };
     if tx.send(c_packet).await.is_err() 
     { error!("Failed to send conversations to client {who}. Did they abruptly disconnect?") }
 
@@ -66,7 +66,7 @@ pub async fn remove_friend(packet: WSPacket, who: SocketAddr, State(store): Stat
     let Some(friend_client) = store.values().find(|c| &c.username == &x)
     else { return Ok(()) }; // user is not online
 
-    let f_packet = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::RecieveArbitraryInfo(client.username, 4) };
+    let f_packet = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::ReceiveArbitraryInfo(client.username, 4) };
     if friend_client.socket.send(f_packet).await.is_err() 
     { error!("Failed to send conversations to client {x}. Did they abruptly disconnect?") }
     

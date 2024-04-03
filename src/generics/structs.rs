@@ -30,6 +30,7 @@ pub struct Account
     pub public_key: Vec<u8>,
     pub priv_key_enc: Vec<u8>,
     pub friends: Vec<String>,
+    pub friend_requests: Vec<FriendRequest>,
     pub session_id: String
 }
 
@@ -59,6 +60,17 @@ impl Account
                 .iter()
                 .map(|x| x.as_str().unwrap().to_string())
                 .collect(),
+            friend_requests: doc
+                .get_array("friend_requests")
+                .unwrap()
+                .iter()
+                .map(|x| FriendRequest {
+                    sender: x.as_document().unwrap().get_str("sender").unwrap().to_string(),
+                    receiver: x.as_document().unwrap().get_str("receiver").unwrap().to_string(),
+                    status: x.as_document().unwrap().get_str("status").unwrap().to_string()
+                })
+                .collect(),
+
             session_id: doc.get_str("session_id").unwrap().to_string()
         }
     }
@@ -180,6 +192,7 @@ pub struct ClientAccount
     pub username: String,
     pub password: String,
     pub friends: Vec<String>,
+    pub friend_requests: Vec<FriendRequest>,
     pub conversations: Vec<Conversation>,
     pub session_id: String
 }
@@ -212,6 +225,20 @@ pub struct UpdateUser
     pub data: String,
     pub action: UpdateAction,
     pub session_id: String
+}
+
+/// A struct representing a friend request.
+/// 
+/// ## Fields
+/// * [`sender`][`std::string::String`] - The username of the user who sent the request.
+/// * [`receiver`][`std::string::String`] - The username of the user who received the request.
+/// 
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq, Default)]
+pub struct FriendRequest
+{
+    pub sender: String,
+    pub receiver: String,
+    pub status: String, // "PENDING", "ACCEPTED", "REJECTED"
 }
 
 //------------------------------//
@@ -522,12 +549,12 @@ pub enum WSAction
     ReceiveMessage(EncryptedMessage),
     CreateConversation(Vec<String>),
     DeleteConversation(String),
-    AddFriend(String),
+    AddFriend(FriendRequest),
     RemoveFriend(String),
     Register(),
     Disconnect(),
     Info(String),
-    RecieveArbitraryInfo(String, u8), // (Serialized Data, Identifying Key)
+    ReceiveArbitraryInfo(String, u8), // (Serialized Data, Identifying Key)
     // ARBITRARY INFO KEYS:
     // 1 - Bulk Conversation Update
     // 2 - Single Conversation Update

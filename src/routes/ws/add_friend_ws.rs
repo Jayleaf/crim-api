@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 use axum::extract::State;
-use tracing::error;
+use tracing::{error, info};
 use super::generics::structs::{Account, WSAction, Conversation};
 use crate::routes::message::make;
 use crate::tokio::sync::mpsc::Sender;
@@ -22,44 +22,68 @@ pub async fn add_friend(packet: WSPacket, who: SocketAddr, State(store): State<C
     let WSAction::AddFriend(x) = packet.action
     else { tx.send(utils::info_packet("Invalid action.")).await.ok(); return Ok(()); };
 
-    let client: Account = match Account::get_account_by_sid(&client.session_id).await
+    let mut client: Account = match Account::get_account_by_sid(&client.session_id).await
     {
         Ok(Some(client)) => client,
         Err(e) => { tx.send(utils::info_packet(&e)).await.ok(); return Ok(()); }
         Ok(None) => { tx.send(utils::info_packet("Invalid session ID.")).await.ok(); return Ok(()); }
     };
 
-    if client.friends.iter().any(|user| user == &x)
-    { tx.send(utils::info_packet("You are already friends with this user.")).await.ok(); return Ok(()); }
-
-    let convo: Conversation = match make::create_conversation(vec![&client.username, &x]).await
+    let mut friend: Account = match Account::get_account(if client.username == x.receiver { &x.sender } else { &x.receiver} ).await
     {
-        Err(e) => { tx.send(utils::info_packet(&e)).await.ok(); return Ok(()); },
-        Ok(convo) => convo
+        Ok(Some(user)) => user,
+        Err(e) => { tx.send(utils::info_packet(&e)).await.ok(); return Ok(()); }
+        Ok(None) => { tx.send(utils::info_packet("Friend does not exist.")).await.ok(); return Ok(()); }
     };
 
-    let Ok(Some(mut friend_acc)) = Account::get_account(&x).await
-    else { tx.send(utils::info_packet("Failed to get friend account.")).await.ok(); return Ok(()); };
-    friend_acc.friends.push(packet.sender);
-    Account::update_account(&friend_acc).await.ok();
+    if client.friends.iter().any(|user| user == &x.receiver)
+    { tx.send(utils::info_packet("You are already friends with this user.")).await.ok(); return Ok(()); }
 
-    // update this client side for all users, beginning with the client
-    let c_packet: WSPacket = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::RecieveArbitraryInfo(serde_json::to_string(&convo).unwrap(), 3) };
-    if tx.send(c_packet).await.is_err() 
-    { error!("Failed to send conversations to client {who}. Did they abruptly disconnect?") }
+    let mut info_code: u8 = 0;
 
-    let Some(friend_client) = store.values().find(|c| &c.username == &x)
-    else { return Ok(()) }; // user is not online
+    match x.status.as_str() {
+        "PENDING" => {
+            // ensure no existing friend request exists
+            if client.friend_requests.iter().any(|req| req.sender == x.sender && req.receiver == x.receiver)
+            { tx.send(utils::info_packet("You have already sent a friend request to this user.")).await.ok(); return Ok(()); }
+            
+            friend.friend_requests.push(x.clone());
+            Account::update_account(&friend).await.ok();
 
-    let f_packet = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::RecieveArbitraryInfo(serde_json::to_string(&convo).unwrap(), 3) };
-    if friend_client.socket.send(f_packet).await.is_err() 
-    { error!("Failed to send conversations to client {x}. Did they abruptly disconnect?") }
+            client.friend_requests.push(x.clone());
+            Account::update_account(&client).await.ok();
+            tx.send(utils::info_packet(&format!("Sent friend request to {}!", &x.receiver))).await.ok();
+            info_code = 5;
+
+        },
+        "REJECTED" => {
+            client.friend_requests.retain(|req| req.sender != x.sender && req.receiver != x.receiver);
+            Account::update_account(&client).await.ok();
+
+            println!("{:#?} || {:#?}", friend.friend_requests, &x);
+            friend.friend_requests.retain(|req| req.sender != x.sender && req.receiver != x.receiver);
+            Account::update_account(&friend).await.ok();
+
+            tx.send(utils::info_packet("Friend request cancelled.")).await.ok();
+
+            info_code = 6;
+            
+        },
+        _ => { tx.send(utils::info_packet("Invalid friend request status.")).await.ok(); return Ok(()); }
+    }
+
+        let c_packet: WSPacket = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::ReceiveArbitraryInfo(serde_json::to_string(&x).unwrap(), info_code) };
+        if tx.send(c_packet).await.is_err() 
+        { error!("Failed to send conversations to client {who}. Did they abruptly disconnect?") }
+
+        let Some(friend_client) = store.values().find(|c| &c.username == &x.receiver)
+        else { return Ok(()) }; // user is not online
+
+        let f_packet = WSPacket { sender: String::from("API"), sid: String::from("0"), action: WSAction::ReceiveArbitraryInfo(serde_json::to_string(&x).unwrap(), info_code) };
+        if friend_client.socket.send(f_packet).await.is_err() 
+        { error!("Failed to send conversations to reciever. Did they abruptly disconnect?") }
+        Ok(())
+    }
+
     
-    
 
-
-
-    // tell the client that the message was sent (unnecessary in prod)
-    tx.send(utils::info_packet("Conversation created.")).await.ok();
-    Ok(())
-}

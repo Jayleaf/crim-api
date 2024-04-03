@@ -55,6 +55,7 @@ pub async fn change_password(payload: String) -> impl IntoResponse
         public_key: server_account.public_key,
         priv_key_enc: server_account.priv_key_enc,
         friends: server_account.friends,
+        friend_requests: server_account.friend_requests,
         session_id: utils::rand_hex(32) // invalidate session on password change
     };
     

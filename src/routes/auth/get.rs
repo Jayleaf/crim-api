@@ -33,6 +33,7 @@ pub async fn get( Path(sid): Path<String>,) -> impl IntoResponse
         username: server_account.username,
         password: String::new(),
         friends: server_account.friends,
+        friend_requests: server_account.friend_requests,
         conversations: convos,
         session_id: String::new(),
     };

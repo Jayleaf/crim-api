@@ -49,6 +49,7 @@ pub async fn create_user(payload: String) -> impl IntoResponse
         public_key,
         priv_key_enc: private_key,
         friends: Vec::new(),
+        friend_requests: Vec::new(),
         session_id: "".to_string()
     };
     

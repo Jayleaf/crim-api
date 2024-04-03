@@ -59,7 +59,7 @@ pub async fn recieve_ws(packet: WSPacket, who: SocketAddr, State(store): State<C
                 .await
                 .ok();
         }
-        WSAction::RecieveArbitraryInfo(_,_) => {
+        WSAction::ReceiveArbitraryInfo(_,_) => {
             tx.send(utils::info_packet("Server does not accept arbitrary info packets."))
                 .await
                 .ok();

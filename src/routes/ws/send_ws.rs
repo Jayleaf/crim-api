@@ -32,7 +32,7 @@ pub async fn send_msg(data: EncryptedMessage, who: SocketAddr, State(store): Sta
     };
         
 
-    let conversation = match Conversation::get_one(&data.dest_convo_id).await
+    let mut conversation = match Conversation::get_one(&data.dest_convo_id).await
     {
         Ok(Some(convo)) => convo,
         Err(e) => { tx.send(utils::info_packet(&e)).await.ok(); return;}
@@ -40,7 +40,7 @@ pub async fn send_msg(data: EncryptedMessage, who: SocketAddr, State(store): Sta
     };
 
     // ensure the sender is friends with all users in the conversation
-    if !conversation.users.iter().all(|user| account.friends.contains(user))
+    if !conversation.users.iter().filter(|x| *x != &account.username).all(|user| account.friends.contains(user))
     { info!("User is not friends with all users."); tx.send(utils::info_packet("You are not friends with all users in this conversation, so you may not send messages to it.")).await.ok(); return; }
 
     // send message to db
