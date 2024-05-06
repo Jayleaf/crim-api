@@ -19,7 +19,7 @@ pub async fn make_convo(packet: WSPacket, who: SocketAddr, State(store): State<C
     if client.session_id != packet.sid || client.username != packet.sender
     { tx.send(utils::info_packet("Invalid session ID.")).await.ok(); return; }
 
-    let WSAction::CreateConversation(x) = packet.action
+    let WSAction::CreateConversation(mut x) = packet.action
     else { tx.send(utils::info_packet("Invalid action.")).await.ok(); return; };
 
     let client: Account = match Account::get_account_by_sid(&client.session_id).await
@@ -32,6 +32,7 @@ pub async fn make_convo(packet: WSPacket, who: SocketAddr, State(store): State<C
     if x.iter().any(|user| !client.friends.contains(user) || user == &client.username)
     { tx.send(utils::info_packet("You are not friends with all the users you are trying to create a conversation with.")).await.ok(); return; }
 
+    x.push(client.username.clone());
     let Ok(convo) = make::create_conversation(x.iter().map(|x| x).collect()).await
     else { tx.send(utils::info_packet("Failed to create conversation.")).await.ok(); return; };
 
