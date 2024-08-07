@@ -15,7 +15,7 @@ Originally, CRIM was entirely terminal-based, had no dedicated API, and was rath
 - [x]   Add/Remove Friends
 - [x]   [End-to-End Message Encryption]()
 - [x]   ID-Based Conversations between users
-- [x]   Group Chats `🚧 Completed, but not implemented front-end`
+- [x]   Group Chats
 - [x]   Change Username/Password `🚧 Completed, but not implemented front-end`
 - [ ]   Preferences `🟡 Medium Priority`
 - [ ]   Pinned Messages `🟡 Medium Priority`
