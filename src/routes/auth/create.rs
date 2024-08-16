@@ -1,8 +1,13 @@
 use super::generics::{utils, structs::{Account, ClientAccount}};
 use crate::db::mongo;
 use argon2::{self, Config};
-use axum::{http::StatusCode, response::IntoResponse};
-use openssl::{pkey::{PKey, Private}, rsa::Rsa, symm::Cipher};
+use axum::{debug_handler, http::StatusCode, response::IntoResponse};
+use rsa::{pkcs8::{EncodePrivateKey, EncodePublicKey}, RsaPrivateKey, RsaPublicKey};
+use aes_gcm::{
+    aead::{Aead, AeadCore, KeyInit, OsRng, generic_array},
+    Aes256Gcm, Nonce, Key // Or `Aes128Gcm`
+    
+};
 
 /// Creates a user entry in the database.
 ///
@@ -14,6 +19,7 @@ use openssl::{pkey::{PKey, Private}, rsa::Rsa, symm::Cipher};
 ///    * 200 OK if the account was created successfully
 ///    * 400 BAD REQUEST if the account already exists
 ///
+#[debug_handler]
 pub async fn create_user(payload: String) -> impl IntoResponse
 {
     // parse the string to an account value
@@ -36,21 +42,28 @@ pub async fn create_user(payload: String) -> impl IntoResponse
     let config = Config::default();
     let hash: String = argon2::hash_encoded(account.password.as_bytes(), &salt.as_bytes(), &config).unwrap();
 
-    let pkey: PKey<Private> = PKey::from_rsa(Rsa::generate(2048).unwrap()).unwrap();
-    let cipher: Cipher = Cipher::aes_256_cbc();
-    let public_key: Vec<u8> = pkey.public_key_to_pem().unwrap();
-    let private_key: Vec<u8> = pkey
-        .private_key_to_pem_pkcs8_passphrase(cipher, &account.password.as_bytes())
-        .unwrap();
-
+    let priv_key: RsaPrivateKey = {
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        RsaPrivateKey::new(&mut rng, 2048).expect("failed to generate a key")
+    };
+    let pub_key: RsaPublicKey = RsaPublicKey::from(&priv_key);
+    let public_key = pub_key.to_public_key_pem(rsa::pkcs8::LineEnding::CRLF).unwrap().as_bytes().to_vec();
+    let private_key = priv_key.to_pkcs8_pem(rsa::pkcs8::LineEnding::CRLF).unwrap();
+    let pvkeyhash: Vec<u8> = argon2::hash_raw(account.password.as_bytes(), b"00000000", &config).unwrap();
+    let nonce = Aes256Gcm::generate_nonce(&mut OsRng).to_vec();
+    let key = Key::<Aes256Gcm>::from_slice(&pvkeyhash);
+    println!("{:#?}", key);
+    let private_key = Aes256Gcm::new(&key).encrypt(&generic_array::GenericArray::clone_from_slice(nonce.as_slice()), private_key.as_bytes().as_ref()).unwrap();    
     let account: Account = Account {
         username: account.username,
         hash,
         public_key,
         priv_key_enc: private_key,
+        nonce,
         friends: Vec::new(),
         friend_requests: Vec::new(),
         session_id: "".to_string()
+        
     };
     
     match Account::create_account(&account).await

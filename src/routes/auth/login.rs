@@ -37,8 +37,14 @@ pub async fn login_user(payload: String) -> impl IntoResponse
         return (
         StatusCode::OK, 
         server_account.session_id + 
-        "|PRIVATEKEY:|" 
+        "|||" 
         + &server_account.priv_key_enc
+            .iter()
+            .map(|&x| x.to_string()).
+            collect::<Vec<String>>()
+            .join(",")
+        + "|||"
+        + &server_account.nonce
             .iter()
             .map(|&x| x.to_string()).
             collect::<Vec<String>>()

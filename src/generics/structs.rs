@@ -1,4 +1,5 @@
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use rsa::{pkcs8::DecodePublicKey, rand_core::CryptoRngCore, traits::PublicKeyParts, Pkcs1v15Encrypt};
 use tokio::sync::Mutex;
 
 //----------------------------------------------//
@@ -8,9 +9,10 @@ use tokio::sync::Mutex;
 //----------------------------------------------//
 use super::{mongo, utils};
 use mongodb::bson::{self, doc, Document};
-use openssl::rsa::{Padding, Rsa};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::Sender;
+use rand::Rng;
+use aes_gcm::aead::{generic_array, generic_array::typenum};
 
 //----------------------------------------------//
 //                                              //
@@ -29,6 +31,7 @@ pub struct Account
     pub hash: String,
     pub public_key: Vec<u8>,
     pub priv_key_enc: Vec<u8>,
+    pub nonce: Vec<u8>,
     pub friends: Vec<String>,
     pub friend_requests: Vec<FriendRequest>,
     pub session_id: String
@@ -50,6 +53,12 @@ impl Account
                 .collect::<Vec<u8>>(),
             priv_key_enc: doc
                 .get_array("priv_key_enc")
+                .unwrap()
+                .iter()
+                .map(|x| x.as_i32().unwrap() as u8)
+                .collect::<Vec<u8>>(),
+            nonce: doc
+                .get_array("nonce")
                 .unwrap()
                 .iter()
                 .map(|x| x.as_i32().unwrap() as u8)
@@ -299,20 +308,23 @@ impl UserKey
     /// 
     pub async fn encrypt(key: &[u8], user: &String) -> Result<UserKey, String>
     {
+        
         let Ok(Some(account)) = Account::get_account(user).await
         else { return Err(utils::gen_err("Error retrieving account from database.")) };
 
-        let Ok(pub_key) = Rsa::public_key_from_pem(account.public_key.as_slice())
+        let Ok(pub_key) = rsa::RsaPublicKey::from_public_key_pem(&String::from_utf8(account.public_key).unwrap())
         else { return Err(utils::gen_err("Error retrieving public key from database.")) };
 
-        let mut encrypted_key: Vec<u8> = vec![0; pub_key.size() as usize];
-        pub_key
-            .public_encrypt(key, &mut encrypted_key, Padding::PKCS1)
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
+        let encrypted_key = pub_key
+            .encrypt(&mut rng, Pkcs1v15Encrypt, key)
             .expect("failed to encrypt key");
+        
         Ok(UserKey {
             owner: user.clone(),
             key: encrypted_key
         })
+
     }
 }
 
@@ -345,6 +357,7 @@ pub struct RawMessage
 pub struct EncryptedMessage
 {
     pub data: Vec<u8>,
+    pub nonce: Vec<u8>,
     pub sender: String,
     pub dest_convo_id: String,
     pub sender_sid: String
@@ -363,9 +376,16 @@ impl EncryptedMessage
             .iter()
             .map(|x| x.as_i32().unwrap() as u8)
             .collect();
+        let nonce: Vec<u8> = doc
+            .get_array("nonce")
+            .unwrap()
+            .iter()
+            .map(|x| x.as_i32().unwrap() as u8)
+            .collect::<Vec<u8>>();
         let sender: String = doc.get_str("sender").unwrap().to_string();
         EncryptedMessage {
             data,
+            nonce,
             sender,
             dest_convo_id: String::new(),
             sender_sid: String::new()
@@ -504,6 +524,7 @@ impl Conversation
         // TODO: pretty sure sender doesn't need to be on EncryptedMessage. Fix in client-side
         let message: EncryptedMessage = EncryptedMessage {
             data: message.data,
+            nonce: message.nonce,
             sender: message.sender,
             dest_convo_id: String::new(),
             sender_sid: String::new()
